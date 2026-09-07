@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0F171C" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#EFEDE6" media="(prefers-color-scheme: light)" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Scorecard" />
+<title>Scorecard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231C2A3A'/><path d='M8 17l5 5 11-12' stroke='%23F7F5EE' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+<style>
+  /* ---------------------------------------------------------
+     Dark by default: this thing gets opened at 05:00 and at
+     22:30, and a page of cream at either hour is hostile.
+     Light palette follows the OS when the sun is up.
+     --------------------------------------------------------- */
+  :root{
+    --ground:#0F171C;      /* petrol slate, not black */
+    --raise:#18242B;       /* lifted surface */
+    --line:#26363F;
+    --text:#E4E9E7;
+    --dim:#8FA3AC;
+    --sage:#7FA88A;        /* won, on pace */
+    --brass:#C79A3C;       /* attention, due soon */
+    --rust:#BE5F49;        /* owed, late */
+    --deep:#5C87A6;        /* prayer */
+    --ink:var(--text); --paper:var(--ground); --rule:var(--line);
+    --green:var(--sage); --red:var(--rust);
+    --r:4px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --ground:#EFEDE6; --raise:#FBFAF6; --line:#D3D0C6;
+      --text:#182126; --dim:#6C7A80;
+      --sage:#3D6B4C; --brass:#8A6516; --rust:#9B3E28; --deep:#2F5773;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:15px; line-height:1.5;
+    background:var(--ground); color:var(--text);
+    -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:600px;margin:0 auto;padding:18px 16px calc(56px + env(safe-area-inset-bottom))}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+  h2{font-size:15px;font-weight:600;letter-spacing:.01em;margin:0 0 3px}
+  .hint{font-size:13px;color:var(--dim);margin:0 0 14px;max-width:62ch}
+  .muted{font-size:13px;color:var(--dim)}
+  .block{margin-bottom:30px;border-top:1px solid var(--line);padding-top:16px}
+
+  /* ---- top bar ---- */
+  .topbar{display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--dim);margin-bottom:16px}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--sage);
+    margin-right:6px;vertical-align:middle}
+  .dot.off{background:var(--brass)}
+  .link{background:none;border:0;color:var(--dim);text-decoration:underline;
+    text-underline-offset:3px;cursor:pointer;font:inherit;font-size:12px;padding:4px 0}
+
+  /* ---- week header ---- */
+  .weeknav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .weeknav .mid{text-align:center;flex:1}
+  .weekrange{font-family:"IBM Plex Mono",monospace;font-size:17px;font-weight:500;letter-spacing:-.01em}
+  .weeksub{font-size:12.5px;color:var(--dim);margin-top:1px}
+
+  /* ---- the hero: seven marks, one per day ---- */
+  .ledger{padding:2px 0 22px;margin-bottom:4px}
+  .lbig{display:flex;align-items:baseline;gap:9px}
+  .lnum{font-family:"IBM Plex Mono",monospace;font-size:52px;line-height:1;font-weight:500;
+    letter-spacing:-.04em;color:var(--sage);font-variant-numeric:tabular-nums}
+  .ledger.lost .lnum{color:var(--rust)}
+  .ledger.risk .lnum{color:var(--text)}
+  .lof{font-size:14px;color:var(--dim)}
+  .strip{display:flex;gap:5px;margin:16px 0 14px;height:34px}
+  .mark{flex:1;background:var(--raise);border:1px solid var(--line);border-radius:2px;
+    display:flex;align-items:flex-end;overflow:hidden}
+  .mark i{display:block;width:100%;background:var(--line);transition:height 160ms}
+  .mark.full{border-color:var(--sage)}
+  .mark.full i{background:var(--sage)}
+  .mark.now{box-shadow:inset 0 0 0 1px var(--text)}
+  .lline{font-size:14.5px;max-width:46ch;color:var(--text)}
+  .ledger.lost .lline{color:var(--rust)}
+  .lmeta{display:flex;gap:18px;margin-top:12px;font-size:12.5px;color:var(--dim);flex-wrap:wrap;
+    font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* ---- CFA week target ---- */
+  .cfabox{background:var(--raise);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px 15px;margin-bottom:26px}
+  .cfahead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .cfatag{font-size:12.5px;color:var(--sage);font-weight:600}
+  .cfahours{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--dim)}
+  .cfatarget{margin:7px 0 0;font-size:14.5px;max-width:56ch}
+  .cfanote{margin:10px 0 0;font-size:12.5px;color:var(--dim);border-top:1px solid var(--line);padding-top:9px}
+
+  /* ---- schedule ---- */
+  .nextup{font-size:13px;color:var(--sage);font-weight:500;margin:0 0 12px}
+  .daytabs{display:flex;gap:5px;margin-bottom:16px}
+  .daytab{flex:1;padding:8px 2px;font:inherit;font-size:12.5px;border:1px solid var(--line);
+    background:transparent;color:var(--dim);border-radius:var(--r);cursor:pointer}
+  .daytab.sel{background:var(--text);color:var(--ground);border-color:var(--text);font-weight:600}
+  .daytab.isnow:not(.sel){color:var(--text);border-color:var(--dim)}
+  .sched{list-style:none;padding:0;margin:0}
+  .sblock{display:grid;grid-template-columns:52px 1fr;gap:12px;padding:9px 0 9px 11px;
+    border-left:2px solid var(--line);align-items:baseline}
+  .sblock + .sblock{border-top:1px solid var(--line)}
+  .sblock.cfa{border-left-color:var(--sage)}
+  .sblock.class{border-left-color:var(--brass)}
+  .sblock.prayer{border-left-color:var(--deep)}
+  .sblock.body{border-left-color:var(--rust)}
+  .sblock.life{border-left-color:var(--dim)}
+  .stime{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--dim);
+    font-variant-numeric:tabular-nums}
+  .slabel{font-size:14.5px}
+  .skind{font-size:11.5px;color:var(--dim);margin-left:7px}
+  .bnote{font-size:12.5px;color:var(--dim);margin-top:4px;max-width:52ch}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .chiplink{font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--r);
+    color:var(--text);text-decoration:none;background:var(--raise);max-width:210px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
+  .chiplink:active{background:var(--line)}
+  .schedfoot{font-size:12.5px;color:var(--dim);margin-top:14px;max-width:58ch}
+
+  /* ---- schedule editing ---- */
+  .erow{display:grid;grid-template-columns:104px 1fr 82px 34px;gap:7px;align-items:center;padding:6px 0}
+  .erow2{padding:0 0 12px;border-bottom:1px solid var(--line)}
+  .erow2.open{padding-top:10px}
+  .elink{display:grid;grid-template-columns:92px 1fr 34px;gap:7px;margin-top:7px;align-items:center}
+  input,select,textarea{font:inherit;font-size:14px;padding:8px 9px;border:1px solid var(--line);
+    border-radius:var(--r);background:var(--raise);color:var(--text);width:100%;min-width:0}
+  input[type=time],input[type=date],input[type=number]{font-family:"IBM Plex Mono",monospace}
+  .erow2 .enote{width:100%;font-size:13.5px}
+  ::placeholder{color:var(--dim);opacity:.75}
+  @media (max-width:430px){
+    .erow{grid-template-columns:92px 1fr 34px}
+    .erow .ekind{grid-column:1/3}
+  }
+
+  /* ---- tick grid ---- */
+  .gridwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px}
+  .grid{display:grid;grid-template-columns:minmax(120px,1.7fr) repeat(7,minmax(30px,1fr));
+    gap:7px 5px;align-items:center;min-width:372px}
+  .dayhead{font-family:"IBM Plex Mono",monospace;font-size:11.5px;text-align:center;color:var(--dim)}
+  .dayhead.today{color:var(--text);font-weight:600}
+  .rowlabel{font-size:13.5px;padding-right:8px;color:var(--text)}
+  .rowtotal{font-size:12.5px;color:var(--dim);padding-top:8px;border-top:1px solid var(--line)}
+  .woncell{text-align:center;color:var(--sage);font-weight:600;padding-top:8px;
+    border-top:1px solid var(--line);min-height:22px}
+  .cell{width:100%;aspect-ratio:1/1;max-width:34px;margin:0 auto;display:block;padding:0;
+    border:1px solid var(--line);background:var(--raise);border-radius:3px;cursor:pointer;
+    transition:background 130ms,border-color 130ms,transform 90ms;-webkit-tap-highlight-color:transparent}
+  .cell.on{background:var(--sage);border-color:var(--sage)}
+  .cell.today{box-shadow:0 0 0 1px var(--text)}
+  .cell.future{opacity:.4}
+  .cell:active{transform:scale(.9)}
+
+  /* ---- lists ---- */
+  ul.list{list-style:none;padding:0;margin:0}
+  .li{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:10px 0;border-bottom:1px solid var(--line)}
+  .lilabel{font-size:14.5px}
+  .lilabel.done{color:var(--dim);text-decoration:line-through}
+  .counter{display:flex;align-items:center;gap:7px;flex-shrink:0}
+  .count{font-family:"IBM Plex Mono",monospace;min-width:38px;text-align:center;
+    font-variant-numeric:tabular-nums;font-size:13.5px;color:var(--dim)}
+  .count.hit{color:var(--sage)}
+
+  /* ---- CFA syllabus ---- */
+  .bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-bottom:18px}
+  .barfill{height:100%;background:var(--sage);transition:width 220ms}
+  .topichead,.topicrow{display:grid;grid-template-columns:1fr 38px 38px;gap:10px;align-items:center}
+  .topichead{padding-bottom:6px}
+  .colhead{font-size:11.5px;color:var(--dim);text-align:center}
+  .topicrow{padding:10px 0;border-bottom:1px solid var(--line)}
+  .tname{background:none;border:0;padding:0;text-align:left;font:inherit;font-size:14.5px;
+    color:var(--text);cursor:pointer}
+  .tname.done{color:var(--dim)}
+  .weight{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--dim)}
+  .hasnote{color:var(--sage);font-size:10px}
+  .topicnote{font-size:12.5px;color:var(--dim);margin-top:3px;max-width:50ch}
+
+  /* ---- deadlines ---- */
+  .dlkind{font-size:11.5px;color:var(--dim);border:1px solid var(--line);
+    border-radius:3px;padding:1px 6px;margin-right:6px}
+  .dlwhen{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--dim);
+    min-width:56px;text-align:right;font-variant-numeric:tabular-nums}
+  .dlwhen.soon{color:var(--brass);font-weight:600}
+  .dlwhen.over{color:var(--rust);font-weight:600}
+  .dlwhen.ok{color:var(--sage)}
+  .dladd{display:grid;grid-template-columns:1fr 140px 96px auto;gap:7px;margin-top:14px;align-items:center}
+  @media (max-width:470px){
+    .dladd{grid-template-columns:1fr 1fr}
+    .dladd input:first-child{grid-column:1/3}
+  }
+
+  /* ---- weight ---- */
+  .wrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .wrow label{font-size:14.5px}
+  .wrow input{width:104px}
+  .spark{width:100%;height:64px;margin-top:16px;display:block}
+
+  /* ---- month ---- */
+  .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px}
+  .mhead{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--dim);
+    text-align:center;padding-bottom:4px}
+  .mcell{border:1px solid var(--line);border-radius:3px;background:var(--raise);
+    padding:7px 3px 6px;min-height:48px;display:flex;flex-direction:column;
+    justify-content:space-between;align-items:center;cursor:pointer;font:inherit;color:var(--text)}
+  .mcell.pad{border:0;background:none;cursor:default}
+  .mcell.won{background:var(--sage);border-color:var(--sage);color:var(--ground)}
+  .mcell.today{box-shadow:0 0 0 1px var(--text)}
+  .mcell.ahead{opacity:.45}
+  .mnum{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .mbar{display:block;width:66%;height:2px;background:var(--line);border-radius:1px;overflow:hidden}
+  .mcell.won .mbar{background:rgba(0,0,0,.25)}
+  .mbar i{display:block;height:100%;background:var(--sage)}
+  .mcell.won .mbar i{background:var(--ground)}
+
+  /* ---- buttons ---- */
+  button{font:inherit}
+  .chip{width:34px;height:34px;margin:0 auto;display:block;padding:0;font-size:14px;
+    border:1px solid var(--line);background:var(--raise);color:var(--text);
+    border-radius:3px;cursor:pointer}
+  .chip.on{background:var(--sage);border-color:var(--sage);color:var(--ground)}
+  .nav{background:transparent;border:1px solid var(--line);border-radius:var(--r);color:var(--text);
+    font-size:19px;line-height:1;width:38px;height:38px;flex:0 0 auto;cursor:pointer}
+  .pm{background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--text);
+    font-size:16px;line-height:1;width:34px;height:34px;cursor:pointer;flex:0 0 auto}
+  .primary{background:var(--sage);color:var(--ground);border:0;border-radius:var(--r);
+    padding:11px 18px;font-size:14.5px;font-weight:600;cursor:pointer}
+  .ghost{background:transparent;color:var(--text);border:1px solid var(--line);
+    border-radius:var(--r);padding:10px 15px;font-size:14px;cursor:pointer}
+  .ghost.small{padding:6px 11px;font-size:13px;margin-top:8px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  :focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+
+  pre.report{margin-top:14px;background:var(--raise);border:1px solid var(--line);
+    border-radius:var(--r);padding:14px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;user-select:all;color:var(--text)}
+
+  /* ---- sign in ---- */
+  .auth{max-width:360px;margin:16vh auto;padding:0 16px}
+  .auth h1{font-family:"IBM Plex Mono",monospace;font-size:24px;font-weight:500;
+    letter-spacing:-.02em;margin:0 0 6px}
+  .auth input{margin-top:9px;font-size:16px;padding:12px}
+  .auth .primary{width:100%;margin-top:14px;padding:13px}
+  .err{color:var(--rust);font-size:13px;margin-top:12px}
+
+  @media (prefers-reduced-motion:reduce){
+    .cell,.barfill,.mark i{transition:none}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ============================================================
+   1. CONFIG — paste your Supabase project URL and anon key here.
+   Leave them blank to run the app offline on this device only.
+   ============================================================ */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+
+/* ============================================================
+   2. YOUR PLAN — edit freely, the app reads from these.
+   ============================================================ */
+const DAILY = [
+  { id:"bed",   label:"In bed by 10:30, up for Fajr" },
+  { id:"quran", label:"2–4 pages Quran with notes" },
+  { id:"cfa",   label:"CFA hours hit for the day" },
+  { id:"kcal",  label:"Under 2,000 kcal, logged" },
+  { id:"mom",   label:"Called Mom" },
+];
+
+const WEEKLY = [
+  { id:"gym",       label:"Gym", target:3 },
+  { id:"ball",      label:"Basketball", target:1 },
+  { id:"bro",       label:"Brother check-in", target:2 },
+  { id:"ship",      label:"Project shipped", target:1 },
+  { id:"video",     label:"Video posted", target:1 },
+  { id:"biz",       label:"Business action", target:1 },
+  { id:"apps",      label:"Job applications", target:5 },
+  { id:"numerical", label:"Numerical reasoning practice", target:1 },
+  { id:"vitd",      label:"Vitamin D tablet (Saturday, with food)", target:1 },
+];
+
+const CFA_TOPICS = [
+  { id:"quant",    label:"Quantitative Methods",         weight:"6–9%",   note:"Fully reorganised for 2027, includes the new financial data science module" },
+  { id:"econ",     label:"Economics",                    weight:"6–9%" },
+  { id:"corpfin",  label:"Corporate Finance",            weight:"6–9%",   note:"Was called Corporate Issuers" },
+  { id:"fsa",      label:"Financial Statement Analysis", weight:"11–14%", note:"Biggest time sink, everything leans on it" },
+  { id:"equities", label:"Equities",                     weight:"11–14%", note:"Expanded to 12 modules for 2027" },
+  { id:"fi",       label:"Fixed Income",                 weight:"11–14%" },
+  { id:"deriv",    label:"Derivatives",                  weight:"5–8%" },
+  { id:"alts",     label:"Alternative Investments",      weight:"7–10%" },
+  { id:"pc",       label:"Portfolio Construction",       weight:"8–12%",  note:"Was called Portfolio Management" },
+  { id:"ethics",   label:"Ethics",                       weight:"15–20%", note:"10 modules for 2027, one per Standard. Do it late so it stays fresh" },
+];
+
+const PLAN = {
+  "2026-09-07":{phase:"Reset",         hours:20,target:"Sleep reset Tue–Thu. Confirm your FinTree and Schweser are 2027 editions. Hardcore block starts Friday: Quant."},
+  "2026-09-14":{phase:"Hardcore",      hours:36,target:"Quant, all 2027 modules including financial data science. Start Economics."},
+  "2026-09-21":{phase:"Hardcore",      hours:36,target:"Finish Economics. Corporate Finance. Open FSA."},
+  "2026-09-28":{phase:"Term wk 1",     hours:22,target:"FSA core: income statement, balance sheet, cash flow."},
+  "2026-10-05":{phase:"Term wk 2",     hours:22,target:"Finish FSA: inventories, long-lived assets, taxes, quality of reports. FSA question bank."},
+  "2026-10-12":{phase:"Term wk 3",     hours:22,target:"Equities part 1: markets, indexes, market efficiency."},
+  "2026-10-19":{phase:"Term wk 4",     hours:22,target:"Equities part 2: valuation, industry analysis. Equities question bank."},
+  "2026-10-26":{phase:"Term wk 5",     hours:22,target:"Fixed Income part 1: instruments, issuance, cash flows, pricing."},
+  "2026-11-02":{phase:"Term wk 6",     hours:22,target:"Fixed Income part 2: yield measures, risk, credit analysis, securitisation."},
+  "2026-11-09":{phase:"Term wk 7",     hours:22,target:"Derivatives, whole topic."},
+  "2026-11-16":{phase:"Term wk 8",     hours:22,target:"Alternative Investments. Start Portfolio Construction."},
+  "2026-11-23":{phase:"Term wk 9",     hours:22,target:"Finish Portfolio Construction: risk, return, IPS, behavioural."},
+  "2026-11-30":{phase:"Content done",  hours:22,target:"Ethics, all 10 modules. Content complete by Sunday."},
+  "2026-12-07":{phase:"Consolidate",   hours:25,target:"Full review week. Mock 1, untimed, diagnose the weak topics."},
+  "2026-12-14":{phase:"Question bank", hours:25,target:"Learning Ecosystem questions: FSA, Equities, Fixed Income."},
+  "2026-12-21":{phase:"Question bank", hours:20,target:"Questions: Quant, Economics, Corporate Finance, Derivatives."},
+  "2026-12-28":{phase:"Question bank", hours:20,target:"Questions: Alternatives, Portfolio Construction, Ethics."},
+  "2027-01-04":{phase:"Mocks",         hours:25,target:"Mock 2 timed. Repair the two weakest topics."},
+  "2027-01-11":{phase:"Mocks",         hours:25,target:"Mock 3 timed. Repair the next two weakest."},
+  "2027-01-18":{phase:"Mocks",         hours:25,target:"Mock 4 timed. Re-read Ethics start to finish."},
+  "2027-01-25":{phase:"Taper",         hours:20,target:"Final review, formula sheets, Ethics again. No new material."},
+  "2027-02-01":{phase:"Exam",          hours:8, target:"Light review only. Sleep is the priority."},
+};
+
+/* Daily schedule. kinds: cfa | class | prayer | body | life
+   Prayer times are Cardiff, mid-September. They shift a lot by winter —
+   Maghrib is near 16:20 in late November — so adjust the evening blocks then. */
+const SCHED_PREP = {
+  base:[
+    {t:"05:00", l:"Wake, Fajr", k:"prayer"},
+    {t:"05:30", l:"Quran with notes, 2–4 pages", k:"prayer"},
+    {t:"06:00", l:"CFA block 1 — new content, hardest material", k:"cfa"},
+    {t:"08:00", l:"Breakfast and a walk outside", k:"body"},
+    {t:"08:45", l:"CFA block 2 — new content", k:"cfa"},
+    {t:"11:15", l:"CFA block 3 — practice questions, not more reading", k:"cfa"},
+    {t:"13:10", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"14:00", l:"Gym (Mon/Wed/Fri) or mobility work", k:"body"},
+    {t:"16:00", l:"Quran class", k:"prayer"},
+    {t:"16:45", l:"Asr", k:"prayer"},
+    {t:"17:00", l:"Call Mom", k:"life"},
+    {t:"17:30", l:"Projects, business, applications", k:"life"},
+    {t:"19:45", l:"Maghrib, dinner by 20:15", k:"prayer"},
+    {t:"20:30", l:"Flashcards or brother check-in", k:"life"},
+    {t:"21:15", l:"Isha", k:"prayer"},
+    {t:"22:00", l:"Screens off", k:"body"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  4:[ // Friday
+    {t:"05:00", l:"Wake, Fajr", k:"prayer"},
+    {t:"05:30", l:"Quran with notes", k:"prayer"},
+    {t:"06:00", l:"CFA block 1", k:"cfa"},
+    {t:"08:00", l:"Breakfast and a walk outside", k:"body"},
+    {t:"08:45", l:"CFA block 2", k:"cfa"},
+    {t:"12:00", l:"Ghusl, prepare for Jummah", k:"prayer"},
+    {t:"13:00", l:"Jummah", k:"prayer"},
+    {t:"14:30", l:"CFA block 3 — practice questions", k:"cfa"},
+    {t:"16:00", l:"Gym", k:"body"},
+    {t:"17:00", l:"Call Mom", k:"life"},
+    {t:"17:30", l:"Projects, business, applications", k:"life"},
+    {t:"19:45", l:"Maghrib, dinner", k:"prayer"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+};
+
+const SCHED_TERM = {
+  0:[ // Monday — 5.5h contact
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"06:30", l:"CFA — 2.5h before class", k:"cfa"},
+    {t:"09:15", l:"Breakfast, travel to Llandaff", k:"life"},
+    {t:"10:00", l:"Investment Management (seminar)", k:"class"},
+    {t:"12:00", l:"Lunch, Dhuhr", k:"prayer"},
+    {t:"13:00", l:"Advanced Financial Management (seminar)", k:"class"},
+    {t:"15:30", l:"Gym", k:"body"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Coursework — this week's assignment", k:"life"},
+    {t:"20:15", l:"Dinner, Isha, wind down", k:"prayer"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  1:[ // Tuesday — no classes, heaviest CFA day
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"06:30", l:"CFA block 1 — new content", k:"cfa"},
+    {t:"09:00", l:"Breakfast and a walk outside", k:"body"},
+    {t:"09:30", l:"CFA block 2 — new content", k:"cfa"},
+    {t:"12:00", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"13:30", l:"CFA block 3 — practice questions", k:"cfa"},
+    {t:"15:30", l:"Gym", k:"body"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Project build", k:"life"},
+    {t:"20:15", l:"Dinner, Isha, brother check-in", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  2:[ // Wednesday
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"06:30", l:"CFA — 1.5h before class", k:"cfa"},
+    {t:"08:15", l:"Breakfast, travel", k:"life"},
+    {t:"09:00", l:"Forensic Accounting (seminar)", k:"class"},
+    {t:"11:00", l:"Investment Management (lecture)", k:"class"},
+    {t:"13:00", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"14:00", l:"CFA — 2h", k:"cfa"},
+    {t:"16:15", l:"Gym", k:"body"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Coursework", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  3:[ // Thursday
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"06:30", l:"CFA — 1.5h before class", k:"cfa"},
+    {t:"08:15", l:"Breakfast, travel", k:"life"},
+    {t:"09:00", l:"Forensic Accounting (lecture)", k:"class"},
+    {t:"11:30", l:"CFA — 2h", k:"cfa"},
+    {t:"13:30", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"14:15", l:"Job applications and numerical practice", k:"life"},
+    {t:"16:00", l:"Plenary (online)", k:"class"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Project build", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  4:[ // Friday — Jummah before the 13:00 lecture, tight
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"06:30", l:"CFA — 2.5h", k:"cfa"},
+    {t:"09:15", l:"Breakfast, coursework", k:"life"},
+    {t:"12:15", l:"On campus early, Jummah at Llandaff prayer room", k:"prayer"},
+    {t:"13:00", l:"Advanced Financial Management (lecture)", k:"class"},
+    {t:"15:30", l:"Gym", k:"body"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Business action — the weekly one", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  5:[ // Saturday
+    {t:"05:30", l:"Fajr, Quran, back to sleep if needed", k:"prayer"},
+    {t:"08:30", l:"Vitamin D tablet with breakfast", k:"body"},
+    {t:"09:00", l:"CFA — 3h", k:"cfa"},
+    {t:"12:30", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"14:00", l:"Basketball", k:"body"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"17:30", l:"Film and edit the week's video", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+  6:[ // Sunday
+    {t:"05:00", l:"Wake, Fajr, Quran", k:"prayer"},
+    {t:"09:00", l:"CFA — 3h", k:"cfa"},
+    {t:"12:30", l:"Dhuhr, lunch", k:"prayer"},
+    {t:"14:00", l:"Ship the project, push to GitHub, post it", k:"life"},
+    {t:"17:00", l:"Call Mom, Asr", k:"life"},
+    {t:"18:00", l:"Fill the scorecard, send the report, pay any sadaqah", k:"life"},
+    {t:"19:30", l:"Plan the week, check brother's progress", k:"life"},
+    {t:"22:30", l:"Bed", k:"body"},
+  ],
+};
+
+const KIND_LABEL = { cfa:"CFA", class:"Class", prayer:"Deen", body:"Body", life:"Life" };
+
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const SAFE_DAYS = 5;
+const PER_DAY = 5;
+const TERM_START = "2026-09-28";
+const CONTENT_DEADLINE = new Date(2026, 10, 30);
+const PREFIX = "week:";
+const CFA_KEY = "cfa-progress";
+const DL_KEY = "deadlines";
+const WT_KEY = "weights";
+const BASE_WEIGHT = { date:"2026-09-07", kg:86 };
+const PACE = 0.6; // kg per week, the sustainable rate
+const LS = "scorecard:v1";
+
+/* ============================================================
+   3. HELPERS
+   ============================================================ */
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const mondayOf = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmt = d => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+const keyFor = m => PREFIX + iso(m);
+const gbp = n => "£"+n;
+function safeUrl(u){
+  const v = String(u||"").trim();
+  if (!v) return null;
+  const ok = /^(https?:|mailto:|tel:|geo:)/i.test(v) ? v : ("https://" + v.replace(/^\/+/,""));
+  try { const p = new URL(ok); if (!/^(https?:|mailto:|tel:|geo:)$/i.test(p.protocol)) return null; return p.href; }
+  catch { return null; }
+}
+function chipsHtml(links){
+  if (!links || !links.length) return "";
+  return '<div class="chips">' + links.map(l=>{
+    const h = safeUrl(l.u); if (!h) return "";
+    return '<a class="chiplink" href="'+esc(h)+'" target="_blank" rel="noopener">'+esc(l.t || new URL(h).hostname.replace(/^www\./,""))+'</a>';
+  }).join("") + '</div>';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const emptyWeek = () => ({
+  daily: Object.fromEntries(DAILY.map(i=>[i.id, Array(7).fill(false)])),
+  weekly: Object.fromEntries(WEEKLY.map(i=>[i.id, 0])),
+});
+const normaliseWeek = raw => {
+  const base = emptyWeek();
+  if (!raw || typeof raw !== "object") return base;
+  DAILY.forEach(it => { const r = raw.daily && raw.daily[it.id];
+    if (Array.isArray(r)) base.daily[it.id] = DAYS.map((_,i)=> r[i]===true); });
+  WEEKLY.forEach(it => { const n = raw.weekly && raw.weekly[it.id];
+    if (typeof n === "number" && n >= 0) base.weekly[it.id] = n; });
+  return base;
+};
+const emptyCfa = () => Object.fromEntries(CFA_TOPICS.map(t=>[t.id,{content:false,questions:false,n:"",u:[]}]));
+const normaliseCfa = raw => {
+  const base = emptyCfa();
+  if (!raw || typeof raw !== "object") return base;
+  CFA_TOPICS.forEach(t => { const r = raw[t.id] || {}; base[t.id] = {
+    content: !!r.content, questions: !!r.questions,
+    n: typeof r.n === "string" ? r.n : "",
+    u: Array.isArray(r.u) ? r.u.filter(x=>x && typeof x.u === "string") : [] }; });
+  return base;
+};
+
+const dayWon    = (w,i) => DAILY.every(it => w.daily[it.id][i]);
+const wonDays   = w => DAYS.reduce((n,_,i)=> n + (dayWon(w,i)?1:0), 0);
+const dailyTicks= w => DAILY.reduce((n,it)=> n + w.daily[it.id].filter(Boolean).length, 0);
+const weeklyDone= w => WEEKLY.filter(it => w.weekly[it.id] >= it.target).length;
+
+/* ============================================================
+   4. STORAGE — Supabase when configured, localStorage always as a mirror
+   ============================================================ */
+const online = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+const sb = online ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const local = {
+  all(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch { return {}; } },
+  set(key,val){ const a=this.all(); a[key]=val; try{ localStorage.setItem(LS, JSON.stringify(a)); }catch{} },
+};
+
+const state = {
+  monday: mondayOf(new Date()),
+  today: (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d; })(),
+  weeks: {},
+  cfa: emptyCfa(),
+  user: null,
+  syncing: false,
+  syncError: false,
+  showReport: false,
+  copied: false,
+  dayView: null,
+  sched: {},
+  editing: false,
+  cfaOpen: null,
+  view: "week",
+  monthAnchor: (()=>{ const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
+  deadlines: [],
+  weights: {},
+  now: new Date(),
+};
+
+async function pullAll(){
+  const cached = local.all();
+  Object.keys(cached).forEach(k => {
+    if (k.startsWith(PREFIX)) state.weeks[k] = normaliseWeek(cached[k]);
+    if (k === CFA_KEY) state.cfa = normaliseCfa(cached[k]);
+    if (k === SCHED_KEY && cached[k] && typeof cached[k] === "object") state.sched = cached[k];
+    if (k === DL_KEY && Array.isArray(cached[k])) state.deadlines = cached[k];
+    if (k === WT_KEY && cached[k] && typeof cached[k] === "object") state.weights = cached[k];
+  });
+  if (!sb || !state.user) return;
+  const { data, error } = await sb.from("scorecard").select("key,value").eq("user_id", state.user.id);
+  if (error) { state.syncError = true; return; }
+  (data||[]).forEach(row => {
+    if (row.key.startsWith(PREFIX)) state.weeks[row.key] = normaliseWeek(row.value);
+    if (row.key === CFA_KEY) state.cfa = normaliseCfa(row.value);
+    if (row.key === SCHED_KEY && row.value && typeof row.value === "object") state.sched = row.value;
+    if (row.key === DL_KEY && Array.isArray(row.value)) state.deadlines = row.value;
+    if (row.key === WT_KEY && row.value && typeof row.value === "object") state.weights = row.value;
+    local.set(row.key, row.value);
+  });
+}
+
+async function push(key, value){
+  local.set(key, value);
+  if (!sb || !state.user) return;
+  state.syncing = true; render();
+  const { error } = await sb.from("scorecard").upsert(
+    { user_id: state.user.id, key, value, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,key" }
+  );
+  state.syncing = false;
+  state.syncError = !!error;
+  render();
+}
+
+/* ============================================================
+   5. ACTIONS
+   ============================================================ */
+const curKey  = () => keyFor(state.monday);
+const curWeek = () => state.weeks[curKey()] || emptyWeek();
+
+function mutateWeek(fn){
+  const k = curKey();
+  const w = JSON.parse(JSON.stringify(state.weeks[k] || emptyWeek()));
+  fn(w);
+  state.weeks[k] = w;
+  render();
+  push(k, w);
+}
+function toggleDaily(id, di){ mutateWeek(w => { w.daily[id][di] = !w.daily[id][di]; }); }
+function bumpWeekly(id, d){ mutateWeek(w => { w.weekly[id] = Math.max(0, w.weekly[id] + d); }); }
+function toggleCfa(id, field){
+  state.cfa[id][field] = !state.cfa[id][field];
+  render();
+  push(CFA_KEY, state.cfa);
+}
+
+function streak(){
+  const wonOn = d => { const w = state.weeks[keyFor(mondayOf(d))];
+    return w ? dayWon(w, (d.getDay()+6)%7) : false; };
+  let c = new Date(state.today);
+  if (!wonOn(c)) c = addDays(c,-1);
+  let n = 0;
+  while (n < 400 && wonOn(c)) { n++; c = addDays(c,-1); }
+  return n;
+}
+
+function buildReport(){
+  const w = curWeek(), m = state.monday, plan = PLAN[iso(m)];
+  const won = wonDays(w), owed = Math.max(0, SAFE_DAYS-won)*PER_DAY;
+  const contentDone = CFA_TOPICS.filter(t=>state.cfa[t.id].content).length;
+  const qDone = CFA_TOPICS.filter(t=>state.cfa[t.id].questions).length;
+  const L = [];
+  L.push("Scorecard, week of "+fmt(m)+"–"+fmt(addDays(m,6)));
+  if (plan) L.push("CFA: "+plan.target+" (target "+plan.hours+"h)");
+  L.push("Days won: "+won+"/7  ("+dailyTicks(w)+"/35 daily ticks)");
+  L.push(won>=SAFE_DAYS ? "Sadaqah owed: none, target met" : "Sadaqah owed: "+gbp(owed));
+  L.push("");
+  L.push("Daily:");
+  DAILY.forEach(it => L.push(w.daily[it.id].map(v=>v?"■":"□").join("")+"  "+it.label));
+  L.push("");
+  L.push("Weekly ("+weeklyDone(w)+"/"+WEEKLY.length+" hit):");
+  WEEKLY.forEach(it => { const n=w.weekly[it.id];
+    L.push((n>=it.target?"✓":"·")+" "+it.label+" "+n+"/"+it.target); });
+  L.push("");
+  L.push("CFA syllabus: "+contentDone+"/"+CFA_TOPICS.length+" topics read, "+qDone+"/"+CFA_TOPICS.length+" question-banked");
+  const wt = state.weights[iso(m)];
+  if (wt != null) L.push("Weight: "+wt+" kg (target "+targetWeight(m)+" kg)");
+  const soon = sortedDeadlines().filter(d=>!d.done && daysUntil(d.date) <= 14).slice(0,3);
+  if (soon.length){
+    L.push("");
+    L.push("Due within a fortnight:");
+    soon.forEach(d=>{ const n = daysUntil(d.date);
+      L.push("· "+d.title+" — "+(n<0 ? Math.abs(n)+"d late" : (n===0?"today":"in "+n+"d"))); });
+  }
+  const s = streak();
+  if (s>0) L.push("Streak: "+s+" day"+(s===1?"":"s"));
+  return L.join("\n");
+}
+
+
+/* ============================================================
+   5b. SCHEDULE — defaults above, user edits override them
+   ============================================================ */
+const SCHED_KEY = "schedule";
+const schedKey = (inTerm, dv) => inTerm ? "term:"+dv : (SCHED_PREP[dv] ? "prep:"+dv : "prep:base");
+function blocksFor(inTerm, dv){
+  const k = schedKey(inTerm, dv);
+  if (state.sched[k]) return state.sched[k];
+  return inTerm ? SCHED_TERM[dv] : (SCHED_PREP[dv] || SCHED_PREP.base);
+}
+function saveBlocks(inTerm, dv, blocks){
+  blocks.sort((a,b)=> a.t.localeCompare(b.t));
+  state.sched[schedKey(inTerm, dv)] = blocks;
+  render();
+  push(SCHED_KEY, state.sched);
+}
+function resetDay(inTerm, dv){
+  delete state.sched[schedKey(inTerm, dv)];
+  render();
+  push(SCHED_KEY, state.sched);
+}
+const mins = t => { const [h,m] = t.split(":").map(Number); return h*60 + (m||0); };
+const hhmm = n => pad(Math.floor(n/60)%24)+":"+pad(n%60);
+
+/* ---- iPhone calendar export ---- */
+const icsEsc = s => String(s).replace(/[\\;,]/g, c=>"\\"+c).replace(/\n/g,"\\n");
+function icsFold(line){
+  if (line.length <= 74) return line;
+  let out = line.slice(0,74), rest = line.slice(74);
+  while (rest.length > 73){ out += "\r\n " + rest.slice(0,73); rest = rest.slice(73); }
+  return out + "\r\n " + rest;
+}
+function icsStamp(d, t){
+  return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"T"+t.replace(":","")+"00";
+}
+function buildIcs(inTerm){
+  const anchor = inTerm ? new Date(2026,8,28) : mondayOf(new Date());
+  const until  = inTerm ? "20270207T235900" : "20260927T235900";
+  const L = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Scorecard//EN","CALSCALE:GREGORIAN",
+             "X-WR-CALNAME:Scorecard — "+(inTerm?"term":"prep")];
+  DAYS.forEach((_, dv) => {
+    const blocks = blocksFor(inTerm, dv);
+    const date = addDays(anchor, dv);
+    blocks.forEach((b, i) => {
+      const start = mins(b.t);
+      const nextT = blocks[i+1] ? mins(blocks[i+1].t) : start + 30;
+      let end = Math.min(Math.max(nextT, start + 15), start + 180);
+      if (end >= 1440) end = 1439;
+      L.push("BEGIN:VEVENT");
+      L.push("UID:"+(inTerm?"t":"p")+dv+"-"+i+"-"+start+"@scorecard");
+      L.push("DTSTAMP:"+icsStamp(new Date(),"00:00"));
+      L.push("DTSTART:"+icsStamp(date, b.t));
+      L.push("DTEND:"+icsStamp(date, hhmm(end)));
+      L.push("RRULE:FREQ=WEEKLY;UNTIL="+until);
+      L.push(icsFold("SUMMARY:"+icsEsc(b.l)));
+      L.push("CATEGORIES:"+KIND_LABEL[b.k]);
+      const urls = (b.u||[]).map(x=>safeUrl(x.u)).filter(Boolean);
+      const desc = [b.n||"", ...urls].filter(Boolean).join("\n");
+      if (desc) L.push(icsFold("DESCRIPTION:"+icsEsc(desc)));
+      if (urls[0]) L.push(icsFold("URL:"+urls[0]));
+      if (urls[0] && /maps|geo:|goo\.gl\/maps/i.test(urls[0])) L.push(icsFold("LOCATION:"+icsEsc(urls[0])));
+      L.push("BEGIN:VALARM","TRIGGER:-PT10M","ACTION:DISPLAY",
+             icsFold("DESCRIPTION:"+icsEsc(b.l)),"END:VALARM");
+      L.push("END:VEVENT");
+    });
+  });
+  L.push("END:VCALENDAR");
+  return L.join("\r\n");
+}
+function downloadIcs(inTerm){
+  const blob = new Blob([buildIcs(inTerm)], {type:"text/calendar;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "scorecard-"+(inTerm?"term":"prep")+".ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+
+/* ---- deadlines ---- */
+const DL_KINDS = { uni:"Uni", cfa:"CFA", job:"Job", biz:"Business", other:"Other" };
+function daysUntil(dateStr){
+  const d = new Date(dateStr + "T00:00:00");
+  return Math.round((d - state.today) / 86400000);
+}
+function sortedDeadlines(){
+  return state.deadlines.slice().sort((a,b)=>
+    (a.done===b.done ? a.date.localeCompare(b.date) : (a.done?1:-1)));
+}
+function saveDeadlines(){ render(); push(DL_KEY, state.deadlines); }
+
+/* ---- weight ---- */
+function weeksSinceBase(mondayDate){
+  const b = new Date(BASE_WEIGHT.date + "T00:00:00");
+  return Math.max(0, Math.round((mondayDate - b) / 604800000));
+}
+function targetWeight(mondayDate){
+  return +(BASE_WEIGHT.kg - PACE * weeksSinceBase(mondayDate)).toFixed(1);
+}
+function weightSeries(){
+  return Object.keys(state.weights).sort().map(k => ({ k, kg: state.weights[k] }));
+}
+function sparkline(){
+  const pts = weightSeries();
+  if (pts.length < 2) return "";
+  const W = 320, H = 60, P = 4;
+  const kgs = pts.map(p=>p.kg);
+  const lo = Math.min(...kgs) - 1, hi = Math.max(...kgs) + 1;
+  const x = i => P + (i/(pts.length-1)) * (W - 2*P);
+  const y = v => P + (1 - (v - lo)/(hi - lo)) * (H - 2*P);
+  const line = pts.map((p,i)=> (i?"L":"M") + x(i).toFixed(1) + " " + y(p.kg).toFixed(1)).join(" ");
+  const tgt = pts.map((p,i)=>{
+    const t = targetWeight(new Date(p.k + "T00:00:00"));
+    return (i?"L":"M") + x(i).toFixed(1) + " " + y(t).toFixed(1);
+  }).join(" ");
+  return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+
+    '<path d="'+tgt+'" fill="none" stroke="var(--rule)" stroke-width="2" stroke-dasharray="4 4"/>'+
+    '<path d="'+line+'" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round"/>'+
+    '</svg>';
+}
+
+/* ============================================================
+   6. RENDER
+   ============================================================ */
+const app = document.getElementById("app");
+
+function renderAuth(msg){
+  app.innerHTML =
+    '<div class="auth">' +
+      '<h1>Scorecard</h1>' +
+      '<p class="hint">Sign in so your weeks follow you between phone and laptop.</p>' +
+      '<input id="email" type="email" placeholder="Email" autocomplete="email" inputmode="email" />' +
+      '<input id="pw" type="password" placeholder="Password" autocomplete="current-password" />' +
+      '<button class="primary" data-act="signin">Sign in</button>' +
+      '<button class="ghost" data-act="signup" style="width:100%;margin-top:8px;padding:12px">Create account</button>' +
+      (msg ? '<p class="err">'+esc(msg)+'</p>' : "") +
+      '<p class="hint" style="margin-top:16px"><button class="link" data-act="offline">Use it on this device only</button></p>' +
+    '</div>';
+}
+
+function renderMonth(){
+  const a = state.monthAnchor;
+  const first = new Date(a.getFullYear(), a.getMonth(), 1);
+  const padStart = (first.getDay()+6)%7;
+  const daysIn = new Date(a.getFullYear(), a.getMonth()+1, 0).getDate();
+  const monthName = first.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+
+  let monthWon = 0, monthTicks = 0, tracked = 0;
+  const cells = [];
+  for (let i=0;i<padStart;i++) cells.push('<div class="mcell pad"></div>');
+  for (let d=1; d<=daysIn; d++){
+    const date = new Date(a.getFullYear(), a.getMonth(), d);
+    const w = state.weeks[keyFor(mondayOf(date))];
+    const di = (date.getDay()+6)%7;
+    const ticks = w ? DAILY.filter(it=>w.daily[it.id][di]).length : 0;
+    const won = w ? dayWon(w, di) : false;
+    const past = date <= state.today;
+    if (past){ monthTicks += ticks; if (won) monthWon++; tracked++; }
+    const isToday = iso(date) === iso(state.today);
+    cells.push('<button class="mcell'+(won?" won":"")+(isToday?" today":"")+(date>state.today?" ahead":"")+
+      '" data-act="goto" data-d="'+iso(date)+'">'+
+      '<span class="mnum">'+d+'</span>'+
+      '<span class="mbar"><i style="width:'+(ticks/DAILY.length*100)+'%"></i></span>'+
+      '</button>');
+  }
+
+  // this month's CFA targets
+  const planRows = Object.keys(PLAN).filter(k=>{
+    const d = new Date(k+"T00:00:00");
+    return d.getFullYear()===a.getFullYear() && d.getMonth()===a.getMonth();
+  }).map(k=>{
+    const d = new Date(k+"T00:00:00");
+    return '<li class="li"><span class="lilabel"><b>'+fmt(d)+'</b> · '+esc(PLAN[k].phase)+
+      '<div class="topicnote">'+esc(PLAN[k].target)+'</div></span>'+
+      '<span class="count">'+PLAN[k].hours+'h</span></li>';
+  }).join("");
+
+  let h = '<div class="weeknav">'+
+    '<button class="nav" data-act="mprev" aria-label="Previous month">‹</button>'+
+    '<div class="mid"><div class="weekrange">'+monthName+'</div>'+
+    '<div class="weeksub">'+monthWon+' of '+tracked+' days won so far</div></div>'+
+    '<button class="nav" data-act="mnext" aria-label="Next month">›</button></div>';
+
+  h += '<div class="actions" style="margin-bottom:16px">'+
+    '<button class="ghost" data-act="view-week">Back to the week</button></div>';
+
+  h += '<div class="mgrid">'+DAYS.map(d=>'<div class="mhead">'+d[0]+'</div>').join("")+cells.join("")+'</div>';
+  h += '<p class="schedfoot">Filled square is a won day. The bar under each number is how many of the five you ticked. Tap any day to open its week.</p>';
+
+  if (planRows) h += '<section class="block"><h2>CFA targets this month</h2><ul class="list">'+planRows+'</ul></section>';
+
+  const s2 = weightSeries();
+  if (s2.length) h += '<section class="block"><h2>Weight</h2>'+
+    '<p class="hint">Latest '+s2[s2.length-1].kg+' kg, started '+BASE_WEIGHT.kg+' kg.</p>'+sparkline()+'</section>';
+
+  return h;
+}
+
+function render(){
+  if (online && !state.user && !state.offline) return renderAuth(state.authMsg);
+
+  if (state.view === "month"){
+    const status0 = !online || state.offline
+      ? '<span><span class="dot off"></span>This device only</span>'
+      : '<span><span class="dot"></span>'+(state.syncError ? "Sync failed, saved locally" : (state.syncing ? "Saving…" : "Synced"))+'</span>';
+    app.innerHTML = '<div class="topbar">'+status0+
+      (state.user ? '<button class="link" data-act="signout">Sign out</button>' : "")+'</div>' + renderMonth();
+    return;
+  }
+
+  const m = state.monday, w = curWeek(), plan = PLAN[iso(m)];
+  const isCurrent = iso(m) === iso(mondayOf(state.today));
+  const todayIdx = isCurrent ? (state.today.getDay()+6)%7 : -1;
+  const won = wonDays(w), ticks = dailyTicks(w), wDone = weeklyDone(w);
+  const elapsed = isCurrent ? todayIdx+1 : (m < state.today ? 7 : 0);
+  const left = 7 - elapsed;
+  const safe = won >= SAFE_DAYS;
+  const canBeSafe = won + left >= SAFE_DAYS;
+  const owed = Math.max(0, SAFE_DAYS-won)*PER_DAY;
+  const contentDone = CFA_TOPICS.filter(t=>state.cfa[t.id].content).length;
+  const qDone = CFA_TOPICS.filter(t=>state.cfa[t.id].questions).length;
+  const weeksLeft = Math.max(0, Math.ceil((CONTENT_DEADLINE - state.today)/604800000));
+  const inTerm = iso(m) >= TERM_START;
+
+  let ledgerLine;
+  if (safe) ledgerLine = "Target met. Nothing owed this week.";
+  else if (canBeSafe) ledgerLine = (SAFE_DAYS-won)+" more won day"+((SAFE_DAYS-won)===1?"":"s")+" from the "+left+" left. Each day short costs "+gbp(PER_DAY)+" to charity.";
+  else ledgerLine = gbp(owed)+" to charity on Sunday."+(left>0 ? " Every won day from here takes "+gbp(PER_DAY)+" off." : " Send the receipt with the report.");
+
+  let html = "";
+
+  // sync bar
+  const status = !online || state.offline
+    ? '<span><span class="dot off"></span>This device only</span>'
+    : '<span><span class="dot"></span>'+(state.syncError ? "Sync failed, saved locally" : (state.syncing ? "Saving…" : "Synced"))+'</span>';
+  html += '<div class="topbar">'+status+
+    (state.user ? '<button class="link" data-act="signout">Sign out</button>' : "")+'</div>';
+
+  // week nav
+  html += '<div class="weeknav">'+
+    '<button class="nav" data-act="prev" aria-label="Previous week">‹</button>'+
+    '<div class="mid"><div class="weekrange">'+fmt(m)+' – '+fmt(addDays(m,6))+'</div>'+
+    '<div class="weeksub">'+(plan?esc(plan.phase):(isCurrent?"This week":(m>state.today?"Upcoming":"Past week")))+
+    (isCurrent?" · this week":"")+'</div></div>'+
+    '<button class="nav" data-act="next" aria-label="Next week">›</button></div>'+
+    '<div class="actions" style="margin:-6px 0 14px"><button class="ghost small" data-act="view-month">Month view</button>'+
+    (isCurrent?"":'<button class="ghost small" data-act="today">Back to today</button>')+'</div>';
+
+  // ledger
+  let strip = '<div class="strip">';
+  DAYS.forEach((d,i)=>{
+    const t = DAILY.filter(it=>w.daily[it.id][i]).length;
+    strip += '<span class="mark'+(dayWon(w,i)?" full":"")+(i===todayIdx?" now":"")+
+      '" title="'+d+'"><i style="height:'+(t/DAILY.length*100)+'%"></i></span>';
+  });
+  strip += '</div>';
+
+  html += '<section class="ledger '+(safe?"safe":(canBeSafe?"risk":"lost"))+'">'+
+    '<div class="lbig"><span class="lnum">'+won+'</span><span class="lof">of 7 days won</span></div>'+
+    strip+
+    '<div class="lline">'+esc(ledgerLine)+'</div>'+
+    '<div class="lmeta"><span>'+ticks+'/35 ticks</span><span>'+wDone+'/'+WEEKLY.length+' weekly slots</span>'+
+    '<span>'+streak()+' day streak</span></div></section>';
+
+  // CFA week target
+  if (plan){
+    html += '<section class="cfabox"><div class="cfahead"><span class="cfatag">CFA this week</span>'+
+      '<span class="cfahours">'+plan.hours+' h target</span></div>'+
+      '<p class="cfatarget">'+esc(plan.target)+'</p>'+
+      (inTerm ? '<p class="cfanote">Friday 13:00 lecture overlaps Jummah — pray at Llandaff campus, then straight into Advanced Financial Management.</p>' : "")+
+      '</section>';
+  }
+
+  // schedule
+  const dv = state.dayView !== null ? state.dayView : (todayIdx >= 0 ? todayIdx : 0);
+  const blocks = blocksFor(inTerm, dv);
+  const edited = !!state.sched[schedKey(inTerm, dv)];
+  const cfaBlocks = blocks.filter(b => b.k === "cfa").length;
+
+  let nextLine = "";
+  if (dv === todayIdx){
+    const nowM = state.now.getHours()*60 + state.now.getMinutes();
+    const nxt = blocks.find(b => mins(b.t) > nowM);
+    const cur = [...blocks].reverse().find(b => mins(b.t) <= nowM);
+    if (cur) nextLine = "Now: "+cur.t+" "+cur.l;
+    if (nxt) nextLine = (cur ? nextLine + " · " : "") + "Next: "+nxt.t+" "+nxt.l;
+  }
+
+  html += '<section class="block"><h2>'+esc(DAY_FULL[dv])+'</h2>'+
+    '<p class="hint">'+(inTerm ? "Term schedule, from 28 September." : "Prep-block schedule, until 27 September.")+
+    ' '+cfaBlocks+' CFA block'+(cfaBlocks===1?"":"s")+' today.'+(edited?" Edited.":"")+'</p>';
+  if (nextLine) html += '<p class="nextup">'+esc(nextLine)+'</p>';
+
+  html += '<div class="daytabs">';
+  DAYS.forEach((d,i)=>{
+    html += '<button class="daytab'+(i===dv?" sel":"")+(i===todayIdx?" isnow":"")+
+      '" data-act="day" data-i="'+i+'">'+d+'</button>';
+  });
+  html += '</div>';
+
+  if (!state.editing){
+    html += '<ul class="sched">';
+    blocks.forEach(b=>{
+      html += '<li class="sblock '+b.k+'"><span class="stime">'+esc(b.t)+'</span>'+
+        '<span><span class="slabel">'+esc(b.l)+'</span><span class="skind">'+KIND_LABEL[b.k]+'</span>'+
+        (b.n ? '<div class="bnote">'+esc(b.n)+'</div>' : "")+ chipsHtml(b.u) +'</span></li>';
+    });
+    html += '</ul>';
+  } else {
+    html += '<ul class="sched">';
+    blocks.forEach((b,i)=>{
+      html += '<li class="erow">'+
+        '<input class="etime" type="time" value="'+esc(b.t)+'" data-edit="t" data-i="'+i+'" aria-label="Time" />'+
+        '<input class="elabel" type="text" value="'+esc(b.l)+'" data-edit="l" data-i="'+i+'" aria-label="What" />'+
+        '<select class="ekind" data-edit="k" data-i="'+i+'" aria-label="Kind">'+
+          Object.keys(KIND_LABEL).map(k=>'<option value="'+k+'"'+(k===b.k?" selected":"")+'>'+KIND_LABEL[k]+'</option>').join("")+
+        '</select>'+
+        '<button class="pm" data-act="del-block" data-i="'+i+'" aria-label="Delete block">×</button>'+
+        '</li>'+
+        '<li class="erow2">'+
+          '<input class="enote" type="text" placeholder="Note — what exactly, where, which chapter" value="'+esc(b.n||"")+'" data-edit="n" data-i="'+i+'" aria-label="Note" />'+
+          (b.u||[]).map((lk,j)=>
+            '<div class="elink">'+
+              '<input type="text" placeholder="Label" value="'+esc(lk.t||"")+'" data-edit="lt" data-i="'+i+'" data-j="'+j+'" aria-label="Link label" />'+
+              '<input type="url" inputmode="url" placeholder="https:// or a maps link" value="'+esc(lk.u||"")+'" data-edit="lu" data-i="'+i+'" data-j="'+j+'" aria-label="Link address" />'+
+              '<button class="pm" data-act="del-link" data-i="'+i+'" data-j="'+j+'" aria-label="Remove link">×</button>'+
+            '</div>').join("")+
+          '<button class="ghost small" data-act="add-link" data-i="'+i+'">Add link or location</button>'+
+        '</li>';
+    });
+    html += '</ul><div class="actions" style="margin-top:10px">'+
+      '<button class="ghost" data-act="add-block">Add block</button>'+
+      (edited ? '<button class="ghost" data-act="reset-day">Reset '+DAYS[dv]+' to default</button>' : "")+
+      '</div>';
+  }
+
+  html += '<div class="actions" style="margin-top:14px">'+
+    '<button class="ghost" data-act="edit-sched">'+(state.editing?"Done editing":"Edit this day")+'</button>'+
+    '<button class="ghost" data-act="ics">Send to iPhone Calendar</button></div>'+
+    '<p class="schedfoot">Calendar export covers the whole week with a 10-minute alert on every block. '+
+    'Re-export after you edit. Prayer times are Cardiff in September — by late November Maghrib lands near 16:20, '+
+    'so pull the evening blocks earlier rather than skipping them.</p></section>';
+
+  // daily grid
+  html += '<section class="block"><h2>Daily non-negotiables</h2>'+
+    '<p class="hint">A day is won only when all five are ticked. Tap a square.</p>'+
+    '<div class="gridwrap"><div class="grid"><div></div>';
+  DAYS.forEach((d,i)=> html += '<div class="dayhead'+(i===todayIdx?" today":"")+'">'+d+'</div>');
+  DAILY.forEach(it=>{
+    html += '<div class="rowlabel">'+esc(it.label)+'</div>';
+    DAYS.forEach((d,di)=>{
+      const on = w.daily[it.id][di];
+      const future = isCurrent && di > todayIdx;
+      html += '<button class="cell'+(on?" on":"")+(future?" future":"")+(di===todayIdx?" today":"")+
+        '" data-act="daily" data-id="'+it.id+'" data-i="'+di+'" aria-pressed="'+on+'" aria-label="'+esc(it.label)+', '+d+'"></button>';
+    });
+  });
+  html += '<div class="rowtotal">Won</div>';
+  DAYS.forEach((d,di)=> html += '<div class="woncell">'+(dayWon(w,di)?"✓":"")+'</div>');
+  html += '</div></div></section>';
+
+  // weekly slots
+  html += '<section class="block"><h2>Weekly slots</h2>'+
+    '<p class="hint">Count each one as you do it. Due by Sunday night.</p><ul class="list">';
+  WEEKLY.forEach(it=>{
+    const n = w.weekly[it.id], hit = n >= it.target;
+    html += '<li class="li"><span class="lilabel'+(hit?" done":"")+'">'+esc(it.label)+'</span>'+
+      '<span class="counter">'+
+      '<button class="pm" data-act="minus" data-id="'+it.id+'" aria-label="One fewer '+esc(it.label)+'">−</button>'+
+      '<span class="count'+(hit?" hit":"")+'">'+n+'/'+it.target+'</span>'+
+      '<button class="pm" data-act="plus" data-id="'+it.id+'" aria-label="One more '+esc(it.label)+'">+</button>'+
+      '</span></li>';
+  });
+  html += '</ul></section>';
+
+  // CFA syllabus
+  html += '<section class="block"><h2>CFA syllabus</h2>'+
+    '<p class="hint">February 2027 sits the 2027 curriculum. '+contentDone+'/'+CFA_TOPICS.length+' read, '+
+    qDone+'/'+CFA_TOPICS.length+' question-banked. '+weeksLeft+' week'+(weeksLeft===1?"":"s")+
+    ' to the 30 Nov content deadline.</p>'+
+    '<div class="bar"><div class="barfill" style="width:'+((contentDone/CFA_TOPICS.length)*100)+'%"></div></div>'+
+    '<div class="topichead"><span></span><span class="colhead">Read</span><span class="colhead">Qbank</span></div><ul class="list">';
+  CFA_TOPICS.forEach(t=>{
+    const st = state.cfa[t.id];
+    const open = state.cfaOpen === t.id;
+    html += '<li class="topicrow"><span>'+
+      '<button class="tname'+(st.content?" done":"")+'" data-act="cfa-open" data-id="'+t.id+'">'+esc(t.label)+
+      '<span class="weight"> '+esc(t.weight)+'</span>'+
+      ((st.n || (st.u&&st.u.length)) ? '<span class="hasnote"> ●</span>' : '')+'</button>'+
+      (t.note ? '<div class="topicnote">'+esc(t.note)+'</div>' : "")+
+      (!open && st.n ? '<div class="bnote">'+esc(st.n)+'</div>' : "")+
+      (!open ? chipsHtml(st.u) : "")+'</span>'+
+      '<button class="chip'+(st.content?" on":"")+'" data-act="cfa" data-id="'+t.id+'" data-f="content" aria-pressed="'+st.content+'" aria-label="'+esc(t.label)+' content read">'+(st.content?"✓":"")+'</button>'+
+      '<button class="chip'+(st.questions?" on":"")+'" data-act="cfa" data-id="'+t.id+'" data-f="questions" aria-pressed="'+st.questions+'" aria-label="'+esc(t.label)+' question bank done">'+(st.questions?"✓":"")+'</button>'+
+      '</li>'+
+      (open ? '<li class="erow2 open">'+
+        '<input class="enote" type="text" placeholder="Note — where you got to, what to redo" value="'+esc(st.n||"")+'" data-cedit="n" data-id="'+t.id+'" aria-label="Topic note" />'+
+        (st.u||[]).map((lk,j)=>
+          '<div class="elink">'+
+            '<input type="text" placeholder="Label" value="'+esc(lk.t||"")+'" data-cedit="lt" data-id="'+t.id+'" data-j="'+j+'" aria-label="Link label" />'+
+            '<input type="url" inputmode="url" placeholder="FinTree video, notes, question set" value="'+esc(lk.u||"")+'" data-cedit="lu" data-id="'+t.id+'" data-j="'+j+'" aria-label="Link address" />'+
+            '<button class="pm" data-act="cfa-del-link" data-id="'+t.id+'" data-j="'+j+'" aria-label="Remove link">×</button>'+
+          '</div>').join("")+
+        '<button class="ghost small" data-act="cfa-add-link" data-id="'+t.id+'">Add link</button>'+
+      '</li>' : "");
+  });
+  html += '</ul></section>';
+
+  // deadlines
+  const dls = sortedDeadlines();
+  html += '<section class="block"><h2>Deadlines</h2>'+
+    '<p class="hint">Assignments, applications, exam admin. Anything with a date that will hurt if you miss it.</p>';
+  if (!dls.length) html += '<p class="muted" style="margin:0 0 12px">Nothing logged. Add your first assignment brief the day you get it.</p>';
+  else {
+    html += '<ul class="list">';
+    dls.forEach(d=>{
+      const n = daysUntil(d.date);
+      const cls = d.done ? "ok" : (n < 0 ? "over" : (n <= 7 ? "soon" : ""));
+      const when = d.done ? "done" : (n === 0 ? "today" : (n < 0 ? Math.abs(n)+"d late" : "in "+n+"d"));
+      html += '<li class="li"><span class="lilabel'+(d.done?" done":"")+'">'+
+        '<span class="dlkind">'+esc(DL_KINDS[d.kind]||"Other")+'</span> '+esc(d.title)+
+        '<div class="topicnote">'+esc(d.date)+'</div></span>'+
+        '<span class="counter"><span class="dlwhen '+cls+'">'+when+'</span>'+
+        '<button class="pm" data-act="dl-done" data-id="'+esc(d.id)+'" aria-label="Toggle done">'+(d.done?"↺":"✓")+'</button>'+
+        '<button class="pm" data-act="dl-del" data-id="'+esc(d.id)+'" aria-label="Delete">×</button></span></li>';
+    });
+    html += '</ul>';
+  }
+  html += '<div class="dladd">'+
+    '<input id="dl-title" type="text" placeholder="What is due" aria-label="Deadline title" />'+
+    '<input id="dl-date" type="date" aria-label="Due date" />'+
+    '<select id="dl-kind" aria-label="Kind">'+
+      Object.keys(DL_KINDS).map(k=>'<option value="'+k+'">'+DL_KINDS[k]+'</option>').join("")+
+    '</select>'+
+    '<button class="ghost small" data-act="dl-add">Add</button></div></section>';
+
+  // weight
+  const wkKey = iso(m);
+  const logged = state.weights[wkKey];
+  const tgt = targetWeight(m);
+  const series = weightSeries();
+  const latest = series.length ? series[series.length-1] : null;
+  const lost = latest ? +(BASE_WEIGHT.kg - latest.kg).toFixed(1) : 0;
+  let wNote = "";
+  if (logged != null){
+    const diff = +(logged - tgt).toFixed(1);
+    wNote = diff <= 0.3 ? "On pace or ahead. Target for this week was "+tgt+" kg."
+                        : "Target for this week was "+tgt+" kg, so "+diff+" kg behind pace. Not a crisis, just keep the dinner time honest.";
+    const prevKeys = Object.keys(state.weights).sort();
+    const idx = prevKeys.indexOf(wkKey);
+    if (idx > 0){
+      const drop = +(state.weights[prevKeys[idx-1]] - logged).toFixed(1);
+      if (drop > 1.5) wNote = "That is "+drop+" kg in a week, faster than planned. Make sure you are actually eating, not just skipping meals.";
+    }
+  }
+  html += '<section class="block"><h2>Weight</h2>'+
+    '<p class="hint">Once a week, same morning, same conditions. Daily weight is mostly water and will mess with your head.</p>'+
+    '<div class="wrow"><label for="wt">This week</label>'+
+    '<input id="wt" type="number" step="0.1" inputmode="decimal" value="'+(logged != null ? logged : "")+'" placeholder="kg" data-act="wt" />'+
+    '<span class="muted">target '+tgt+' kg</span></div>'+
+    (wNote ? '<p class="hint" style="margin-top:8px">'+esc(wNote)+'</p>' : "")+
+    (series.length ? sparkline()+'<p class="schedfoot">Solid line is you, dashed is the '+PACE+' kg a week pace. '+
+      lost+' kg down from '+BASE_WEIGHT.kg+' kg so far.</p>' : "")+
+    '</section>';
+
+  // report
+  html += '<section class="block"><h2>Sunday report</h2>'+
+    '<p class="hint">Send this to your friend each Sunday, with the donation receipt if anything is owed.</p>'+
+    '<div class="actions"><button class="primary" data-act="copy">'+(state.copied?"Copied":"Copy report")+'</button>'+
+    '<button class="ghost" data-act="toggle-report">'+(state.showReport?"Hide text":"Show text")+'</button></div>'+
+    (state.showReport ? '<pre class="report">'+esc(buildReport())+'</pre>' : "")+
+    '</section>';
+
+  app.innerHTML = html;
+}
+
+/* ============================================================
+   7. EVENTS
+   ============================================================ */
+app.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+
+  if (act === "view-month"){ state.view = "month"; state.monthAnchor = new Date(state.monday.getFullYear(), state.monday.getMonth(), 1); return render(); }
+  if (act === "view-week"){ state.view = "week"; return render(); }
+  if (act === "today"){ state.monday = mondayOf(new Date()); state.dayView = null; return render(); }
+  if (act === "mprev"){ const a = state.monthAnchor; state.monthAnchor = new Date(a.getFullYear(), a.getMonth()-1, 1); return render(); }
+  if (act === "mnext"){ const a = state.monthAnchor; state.monthAnchor = new Date(a.getFullYear(), a.getMonth()+1, 1); return render(); }
+  if (act === "goto"){
+    const d = new Date(el.dataset.d + "T00:00:00");
+    state.monday = mondayOf(d);
+    state.dayView = (d.getDay()+6)%7;
+    state.view = "week";
+    return render();
+  }
+  if (act === "dl-add"){
+    const title = document.getElementById("dl-title").value.trim();
+    const date = document.getElementById("dl-date").value;
+    const kind = document.getElementById("dl-kind").value;
+    if (!title || !date) return;
+    state.deadlines.push({ id: "d"+Date.now(), title, date, kind, done:false });
+    return saveDeadlines();
+  }
+  if (act === "dl-done"){
+    const d = state.deadlines.find(x=>x.id === el.dataset.id);
+    if (d) d.done = !d.done;
+    return saveDeadlines();
+  }
+  if (act === "dl-del"){
+    state.deadlines = state.deadlines.filter(x=>x.id !== el.dataset.id);
+    return saveDeadlines();
+  }
+  if (act === "day"){ state.dayView = +el.dataset.i; return render(); }
+  if (act === "edit-sched"){ state.editing = !state.editing; return render(); }
+  if (act === "ics"){ downloadIcs(iso(state.monday) >= TERM_START); return; }
+  if (act === "add-block"){
+    const d = state.dayView !== null ? state.dayView : ((state.today.getDay()+6)%7);
+    const t = iso(state.monday) >= TERM_START;
+    const b = JSON.parse(JSON.stringify(blocksFor(t,d)));
+    b.push({t:"12:00", l:"New block", k:"life"});
+    return saveBlocks(t,d,b);
+  }
+  if (act === "del-block"){
+    const d = state.dayView !== null ? state.dayView : ((state.today.getDay()+6)%7);
+    const t = iso(state.monday) >= TERM_START;
+    const b = JSON.parse(JSON.stringify(blocksFor(t,d)));
+    b.splice(+el.dataset.i, 1);
+    return saveBlocks(t,d,b);
+  }
+  if (act === "add-link" || act === "del-link"){
+    const d = state.dayView !== null ? state.dayView : ((state.today.getDay()+6)%7);
+    const t = iso(state.monday) >= TERM_START;
+    const b = JSON.parse(JSON.stringify(blocksFor(t,d)));
+    const i = +el.dataset.i;
+    if (!b[i]) return;
+    b[i].u = b[i].u || [];
+    if (act === "add-link") b[i].u.push({t:"", u:""});
+    else b[i].u.splice(+el.dataset.j, 1);
+    return saveBlocks(t,d,b);
+  }
+  if (act === "cfa-open"){
+    state.cfaOpen = state.cfaOpen === el.dataset.id ? null : el.dataset.id;
+    return render();
+  }
+  if (act === "cfa-add-link" || act === "cfa-del-link"){
+    const st = state.cfa[el.dataset.id];
+    st.u = st.u || [];
+    if (act === "cfa-add-link") st.u.push({t:"", u:""});
+    else st.u.splice(+el.dataset.j, 1);
+    render();
+    return push(CFA_KEY, state.cfa);
+  }
+  if (act === "reset-day"){
+    const d = state.dayView !== null ? state.dayView : ((state.today.getDay()+6)%7);
+    return resetDay(iso(state.monday) >= TERM_START, d);
+  }
+  if (act === "prev"){ state.monday = addDays(state.monday,-7); state.dayView = null; return render(); }
+  if (act === "next"){ state.monday = addDays(state.monday, 7); state.dayView = null; return render(); }
+  if (act === "daily") return toggleDaily(el.dataset.id, +el.dataset.i);
+  if (act === "plus")  return bumpWeekly(el.dataset.id, 1);
+  if (act === "minus") return bumpWeekly(el.dataset.id,-1);
+  if (act === "cfa")   return toggleCfa(el.dataset.id, el.dataset.f);
+  if (act === "toggle-report"){ state.showReport = !state.showReport; return render(); }
+  if (act === "copy"){
+    const text = buildReport();
+    try { await navigator.clipboard.writeText(text); state.copied = true; render();
+          setTimeout(()=>{ state.copied=false; render(); }, 1500); }
+    catch { state.showReport = true; render(); }
+    return;
+  }
+  if (act === "offline"){ state.offline = true; await pullAll(); return render(); }
+  if (act === "signout"){ await sb.auth.signOut(); state.user=null; state.weeks={}; state.cfa=emptyCfa(); return render(); }
+
+  if (act === "signin" || act === "signup"){
+    const email = document.getElementById("email").value.trim();
+    const pw = document.getElementById("pw").value;
+    if (!email || !pw){ state.authMsg = "Email and password, both."; return render(); }
+    el.disabled = true;
+    const fn = act === "signin" ? sb.auth.signInWithPassword({email,password:pw})
+                                : sb.auth.signUp({email,password:pw});
+    const { data, error } = await fn;
+    if (error){ state.authMsg = error.message; return render(); }
+    if (!data.session){ state.authMsg = "Account made. Confirm the email, then sign in."; return render(); }
+    state.user = data.session.user; state.authMsg = null;
+    await pullAll();
+    return render();
+  }
+});
+
+app.addEventListener("change", e => {
+  const el = e.target.closest("[data-edit]");
+  if (!el) return;
+  const d = state.dayView !== null ? state.dayView : ((state.today.getDay()+6)%7);
+  const t = iso(state.monday) >= TERM_START;
+  const b = JSON.parse(JSON.stringify(blocksFor(t,d)));
+  const i = +el.dataset.i;
+  if (!b[i]) return;
+  const v = el.value.trim();
+  if (el.dataset.edit === "t" && /^\d{2}:\d{2}$/.test(v)) b[i].t = v;
+  if (el.dataset.edit === "l" && v) b[i].l = v;
+  if (el.dataset.edit === "k") b[i].k = el.value;
+  if (el.dataset.edit === "n") b[i].n = v;
+  if (el.dataset.edit === "lt" || el.dataset.edit === "lu"){
+    const j = +el.dataset.j;
+    b[i].u = b[i].u || [];
+    if (!b[i].u[j]) return;
+    b[i].u[j][el.dataset.edit === "lt" ? "t" : "u"] = v;
+  }
+  saveBlocks(t,d,b);
+});
+
+app.addEventListener("change", e => {
+  const el = e.target.closest('[data-act="wt"]');
+  if (!el) return;
+  const k = iso(state.monday);
+  const v = parseFloat(el.value);
+  if (isNaN(v) || v <= 0) delete state.weights[k];
+  else state.weights[k] = Math.round(v*10)/10;
+  render();
+  push(WT_KEY, state.weights);
+});
+
+app.addEventListener("change", e => {
+  const el = e.target.closest("[data-cedit]");
+  if (!el) return;
+  const st = state.cfa[el.dataset.id];
+  if (!st) return;
+  const v = el.value.trim();
+  if (el.dataset.cedit === "n") st.n = v;
+  if (el.dataset.cedit === "lt" || el.dataset.cedit === "lu"){
+    const j = +el.dataset.j;
+    st.u = st.u || [];
+    if (!st.u[j]) return;
+    st.u[j][el.dataset.cedit === "lt" ? "t" : "u"] = v;
+  }
+  render();
+  push(CFA_KEY, state.cfa);
+});
+
+/* ============================================================
+   8. BOOT
+   ============================================================ */
+(async function init(){
+  if (sb){
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) state.user = data.session.user;
+  }
+  await pullAll();
+  render();
+  // refresh "today" if the tab is left open overnight
+  setInterval(()=>{
+    const d = new Date(); d.setHours(0,0,0,0);
+    state.now = new Date();
+    if (iso(d) !== iso(state.today)){ state.today = d; state.monday = mondayOf(d); state.dayView = null; }
+    if (!state.editing) render();
+  }, 60000);
+})();
+</script>
+</body>
+</html>
