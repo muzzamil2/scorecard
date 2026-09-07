@@ -529,8 +529,14 @@ const weeklyDone= w => WEEKLY.filter(it => w.weekly[it.id] >= it.target).length;
 /* ============================================================
    4. STORAGE — Supabase when configured, localStorage always as a mirror
    ============================================================ */
-const online = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
-const sb = online ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let sb = null;
+try {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+    const u = SUPABASE_URL.trim().replace(/\s+/g, "");
+    sb = window.supabase.createClient(/^https?:\/\//.test(u) ? u : "https://" + u, SUPABASE_ANON_KEY.trim());
+  }
+} catch (e) { console.error("Supabase config problem:", e); }
+const online = !!sb;
 
 const local = {
   all(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch { return {}; } },
