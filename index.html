@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1C2A3A" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Scorecard" />
+<title>Scorecard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231C2A3A'/><path d='M8 17l5 5 11-12' stroke='%23F7F5EE' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+<style>
+  :root{
+    --ink:#1C2A3A; --paper:#F7F5EE; --rule:#D9D4C5; --green:#1F4D3A; --red:#6B1F1F; --dim:#6B6A62;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    background:var(--paper); color:var(--ink); line-height:1.45;
+    -webkit-text-size-adjust:100%;
+  }
+  #app{max-width:560px;margin:0 auto;padding:20px 16px calc(48px + env(safe-area-inset-bottom))}
+  h2{font-size:18px;font-weight:600;margin:0 0 2px}
+  .hint{font-size:13px;color:var(--dim);margin:0 0 12px}
+  .muted{font-size:13px;color:var(--dim)}
+  .block{margin-bottom:26px;border-top:1px solid var(--rule);padding-top:14px}
+
+  .weeknav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+  .weeknav .mid{text-align:center}
+  .weekrange{font-size:20px;font-weight:600;letter-spacing:-.01em}
+  .weeksub{font-size:13px;color:var(--dim)}
+
+  .ledger{color:var(--paper);border-radius:6px;padding:18px 18px 14px;margin-bottom:14px;background:var(--ink)}
+  .ledger.safe{background:var(--green)} .ledger.lost{background:var(--red)}
+  .lbig{display:flex;align-items:baseline;gap:10px}
+  .lnum{font-size:64px;line-height:1;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .lof{font-size:18px;opacity:.85}
+  .lline{margin-top:8px;font-size:16px;max-width:38ch}
+  .lmeta{display:flex;gap:16px;margin-top:12px;font-size:13px;opacity:.8;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+
+  .cfabox{border:1px solid var(--rule);border-left:3px solid var(--green);border-radius:4px;padding:12px 14px;margin-bottom:22px;background:#fff}
+  .cfahead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .cfatag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);font-weight:700}
+  .cfahours{font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .cfatarget{margin:6px 0 0;font-size:15.5px}
+  .cfanote{margin:8px 0 0;font-size:13px;color:var(--dim);border-top:1px dotted var(--rule);padding-top:8px}
+
+  .gridwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .grid{display:grid;grid-template-columns:minmax(118px,1.6fr) repeat(7,minmax(30px,1fr));gap:6px 4px;align-items:center;min-width:370px}
+  .dayhead{font-size:12px;text-align:center;color:var(--dim)}
+  .dayhead.today{color:var(--ink);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+  .rowlabel{font-size:13.5px;padding-right:6px}
+  .rowtotal{font-size:13px;color:var(--dim);padding-top:6px;border-top:1px solid var(--rule)}
+  .woncell{text-align:center;color:var(--green);font-weight:700;padding-top:6px;border-top:1px solid var(--rule);min-height:22px}
+
+  .cell{width:100%;aspect-ratio:1/1;max-width:34px;margin:0 auto;display:block;padding:0;
+    border:1.5px solid var(--ink);background:transparent;border-radius:3px;cursor:pointer;
+    transition:background 120ms,transform 80ms;-webkit-tap-highlight-color:transparent}
+  .cell.on{background:var(--green);border-color:var(--green)}
+  .cell.today{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--ink)}
+  .cell.future{border-style:dashed;opacity:.45}
+  .cell:active{transform:scale(.92)}
+
+  ul.list{list-style:none;padding:0;margin:0}
+  .li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dotted var(--rule)}
+  .lilabel{font-size:15px}
+  .lilabel.done{opacity:.55;text-decoration:line-through}
+  .counter{display:flex;align-items:center;gap:6px;flex-shrink:0}
+  .count{min-width:36px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600}
+  .count.hit{color:var(--green)}
+
+  .bar{height:6px;background:var(--rule);border-radius:3px;overflow:hidden;margin-bottom:14px}
+  .barfill{height:100%;background:var(--green);transition:width 200ms}
+  .topichead,.topicrow{display:grid;grid-template-columns:1fr 40px 40px;gap:8px;align-items:center}
+  .topichead{padding-bottom:4px}
+  .colhead{font-size:11px;color:var(--dim);text-align:center;letter-spacing:.04em}
+  .topicrow{padding:8px 0;border-bottom:1px dotted var(--rule)}
+  .weight{font-size:12.5px;color:var(--dim)}
+  .topicnote{font-size:12px;color:var(--dim);margin-top:2px;max-width:42ch}
+
+  button{font:inherit}
+  .chip{width:34px;height:34px;margin:0 auto;display:block;padding:0;font-size:16px;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);border-radius:3px;cursor:pointer}
+  .chip.on{background:var(--green);border-color:var(--green);color:var(--paper)}
+  .nav{background:none;border:1px solid var(--rule);border-radius:4px;color:var(--ink);
+    font-size:22px;line-height:1;width:36px;height:36px;flex:0 0 auto;cursor:pointer}
+  .pm{background:none;border:1px solid var(--rule);border-radius:4px;color:var(--ink);
+    font-size:18px;line-height:1;width:32px;height:32px;cursor:pointer}
+  .primary{background:var(--ink);color:var(--paper);border:0;border-radius:4px;padding:10px 16px;font-size:15px;cursor:pointer}
+  .ghost{background:none;color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:10px 14px;font-size:15px;cursor:pointer}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  pre.report{margin-top:12px;background:#fff;border:1px solid var(--rule);border-radius:4px;padding:12px;
+    font-size:12.5px;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;user-select:all}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin-bottom:10px}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle}
+  .dot.off{background:#B9A24A}
+  .link{background:none;border:0;color:var(--dim);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
+
+  .auth{max-width:360px;margin:12vh auto;padding:0 16px}
+  .auth h1{font-size:22px;margin:0 0 4px}
+  .auth input{width:100%;padding:11px 12px;margin-top:8px;border:1px solid var(--rule);border-radius:4px;
+    font:inherit;font-size:16px;background:#fff;color:var(--ink)}
+  .auth .primary{width:100%;margin-top:12px;padding:12px}
+  .err{color:var(--red);font-size:13px;margin-top:10px}
+  @media (prefers-reduced-motion:reduce){.cell,.barfill{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ============================================================
+   1. CONFIG — paste your Supabase project URL and anon key here.
+   Leave them blank to run the app offline on this device only.
+   ============================================================ */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+
+/* ============================================================
+   2. YOUR PLAN — edit freely, the app reads from these.
+   ============================================================ */
+const DAILY = [
+  { id:"bed",   label:"In bed by 10:30, up for Fajr" },
+  { id:"quran", label:"2–4 pages Quran with notes" },
+  { id:"cfa",   label:"CFA hours hit for the day" },
+  { id:"kcal",  label:"Under 2,000 kcal, logged" },
+  { id:"mom",   label:"Called Mom" },
+];
+
+const WEEKLY = [
+  { id:"gym",       label:"Gym", target:3 },
+  { id:"ball",      label:"Basketball", target:1 },
+  { id:"bro",       label:"Brother check-in", target:2 },
+  { id:"ship",      label:"Project shipped", target:1 },
+  { id:"video",     label:"Video posted", target:1 },
+  { id:"biz",       label:"Business action", target:1 },
+  { id:"apps",      label:"Job applications", target:5 },
+  { id:"numerical", label:"Numerical reasoning practice", target:1 },
+];
+
+const CFA_TOPICS = [
+  { id:"quant",    label:"Quantitative Methods",         weight:"6–9%",   note:"Fully reorganised for 2027, includes the new financial data science module" },
+  { id:"econ",     label:"Economics",                    weight:"6–9%" },
+  { id:"corpfin",  label:"Corporate Finance",            weight:"6–9%",   note:"Was called Corporate Issuers" },
+  { id:"fsa",      label:"Financial Statement Analysis", weight:"11–14%", note:"Biggest time sink, everything leans on it" },
+  { id:"equities", label:"Equities",                     weight:"11–14%", note:"Expanded to 12 modules for 2027" },
+  { id:"fi",       label:"Fixed Income",                 weight:"11–14%" },
+  { id:"deriv",    label:"Derivatives",                  weight:"5–8%" },
+  { id:"alts",     label:"Alternative Investments",      weight:"7–10%" },
+  { id:"pc",       label:"Portfolio Construction",       weight:"8–12%",  note:"Was called Portfolio Management" },
+  { id:"ethics",   label:"Ethics",                       weight:"15–20%", note:"10 modules for 2027, one per Standard. Do it late so it stays fresh" },
+];
+
+const PLAN = {
+  "2026-09-07":{phase:"Reset",         hours:20,target:"Sleep reset Tue–Thu. Confirm your FinTree and Schweser are 2027 editions. Hardcore block starts Friday: Quant."},
+  "2026-09-14":{phase:"Hardcore",      hours:36,target:"Quant, all 2027 modules including financial data science. Start Economics."},
+  "2026-09-21":{phase:"Hardcore",      hours:36,target:"Finish Economics. Corporate Finance. Open FSA."},
+  "2026-09-28":{phase:"Term wk 1",     hours:22,target:"FSA core: income statement, balance sheet, cash flow."},
+  "2026-10-05":{phase:"Term wk 2",     hours:22,target:"Finish FSA: inventories, long-lived assets, taxes, quality of reports. FSA question bank."},
+  "2026-10-12":{phase:"Term wk 3",     hours:22,target:"Equities part 1: markets, indexes, market efficiency."},
+  "2026-10-19":{phase:"Term wk 4",     hours:22,target:"Equities part 2: valuation, industry analysis. Equities question bank."},
+  "2026-10-26":{phase:"Term wk 5",     hours:22,target:"Fixed Income part 1: instruments, issuance, cash flows, pricing."},
+  "2026-11-02":{phase:"Term wk 6",     hours:22,target:"Fixed Income part 2: yield measures, risk, credit analysis, securitisation."},
+  "2026-11-09":{phase:"Term wk 7",     hours:22,target:"Derivatives, whole topic."},
+  "2026-11-16":{phase:"Term wk 8",     hours:22,target:"Alternative Investments. Start Portfolio Construction."},
+  "2026-11-23":{phase:"Term wk 9",     hours:22,target:"Finish Portfolio Construction: risk, return, IPS, behavioural."},
+  "2026-11-30":{phase:"Content done",  hours:22,target:"Ethics, all 10 modules. Content complete by Sunday."},
+  "2026-12-07":{phase:"Consolidate",   hours:25,target:"Full review week. Mock 1, untimed, diagnose the weak topics."},
+  "2026-12-14":{phase:"Question bank", hours:25,target:"Learning Ecosystem questions: FSA, Equities, Fixed Income."},
+  "2026-12-21":{phase:"Question bank", hours:20,target:"Questions: Quant, Economics, Corporate Finance, Derivatives."},
+  "2026-12-28":{phase:"Question bank", hours:20,target:"Questions: Alternatives, Portfolio Construction, Ethics."},
+  "2027-01-04":{phase:"Mocks",         hours:25,target:"Mock 2 timed. Repair the two weakest topics."},
+  "2027-01-11":{phase:"Mocks",         hours:25,target:"Mock 3 timed. Repair the next two weakest."},
+  "2027-01-18":{phase:"Mocks",         hours:25,target:"Mock 4 timed. Re-read Ethics start to finish."},
+  "2027-01-25":{phase:"Taper",         hours:20,target:"Final review, formula sheets, Ethics again. No new material."},
+  "2027-02-01":{phase:"Exam",          hours:8, target:"Light review only. Sleep is the priority."},
+};
+
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const SAFE_DAYS = 5;
+const PER_DAY = 5;
+const TERM_START = "2026-09-28";
+const CONTENT_DEADLINE = new Date(2026, 10, 30);
+const PREFIX = "week:";
+const CFA_KEY = "cfa-progress";
+const LS = "scorecard:v1";
+
+/* ============================================================
+   3. HELPERS
+   ============================================================ */
+const pad = n => String(n).padStart(2,"0");
+const iso = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const mondayOf = d => { const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmt = d => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+const keyFor = m => PREFIX + iso(m);
+const gbp = n => "£"+n;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const emptyWeek = () => ({
+  daily: Object.fromEntries(DAILY.map(i=>[i.id, Array(7).fill(false)])),
+  weekly: Object.fromEntries(WEEKLY.map(i=>[i.id, 0])),
+});
+const normaliseWeek = raw => {
+  const base = emptyWeek();
+  if (!raw || typeof raw !== "object") return base;
+  DAILY.forEach(it => { const r = raw.daily && raw.daily[it.id];
+    if (Array.isArray(r)) base.daily[it.id] = DAYS.map((_,i)=> r[i]===true); });
+  WEEKLY.forEach(it => { const n = raw.weekly && raw.weekly[it.id];
+    if (typeof n === "number" && n >= 0) base.weekly[it.id] = n; });
+  return base;
+};
+const emptyCfa = () => Object.fromEntries(CFA_TOPICS.map(t=>[t.id,{content:false,questions:false}]));
+const normaliseCfa = raw => {
+  const base = emptyCfa();
+  if (!raw || typeof raw !== "object") return base;
+  CFA_TOPICS.forEach(t => { base[t.id] = {
+    content: !!(raw[t.id] && raw[t.id].content),
+    questions: !!(raw[t.id] && raw[t.id].questions) }; });
+  return base;
+};
+
+const dayWon    = (w,i) => DAILY.every(it => w.daily[it.id][i]);
+const wonDays   = w => DAYS.reduce((n,_,i)=> n + (dayWon(w,i)?1:0), 0);
+const dailyTicks= w => DAILY.reduce((n,it)=> n + w.daily[it.id].filter(Boolean).length, 0);
+const weeklyDone= w => WEEKLY.filter(it => w.weekly[it.id] >= it.target).length;
+
+/* ============================================================
+   4. STORAGE — Supabase when configured, localStorage always as a mirror
+   ============================================================ */
+const online = !!(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+const sb = online ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const local = {
+  all(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch { return {}; } },
+  set(key,val){ const a=this.all(); a[key]=val; try{ localStorage.setItem(LS, JSON.stringify(a)); }catch{} },
+};
+
+const state = {
+  monday: mondayOf(new Date()),
+  today: (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d; })(),
+  weeks: {},
+  cfa: emptyCfa(),
+  user: null,
+  syncing: false,
+  syncError: false,
+  showReport: false,
+  copied: false,
+};
+
+async function pullAll(){
+  const cached = local.all();
+  Object.keys(cached).forEach(k => {
+    if (k.startsWith(PREFIX)) state.weeks[k] = normaliseWeek(cached[k]);
+    if (k === CFA_KEY) state.cfa = normaliseCfa(cached[k]);
+  });
+  if (!sb || !state.user) return;
+  const { data, error } = await sb.from("scorecard").select("key,value").eq("user_id", state.user.id);
+  if (error) { state.syncError = true; return; }
+  (data||[]).forEach(row => {
+    if (row.key.startsWith(PREFIX)) state.weeks[row.key] = normaliseWeek(row.value);
+    if (row.key === CFA_KEY) state.cfa = normaliseCfa(row.value);
+    local.set(row.key, row.value);
+  });
+}
+
+async function push(key, value){
+  local.set(key, value);
+  if (!sb || !state.user) return;
+  state.syncing = true; render();
+  const { error } = await sb.from("scorecard").upsert(
+    { user_id: state.user.id, key, value, updated_at: new Date().toISOString() },
+    { onConflict: "user_id,key" }
+  );
+  state.syncing = false;
+  state.syncError = !!error;
+  render();
+}
+
+/* ============================================================
+   5. ACTIONS
+   ============================================================ */
+const curKey  = () => keyFor(state.monday);
+const curWeek = () => state.weeks[curKey()] || emptyWeek();
+
+function mutateWeek(fn){
+  const k = curKey();
+  const w = JSON.parse(JSON.stringify(state.weeks[k] || emptyWeek()));
+  fn(w);
+  state.weeks[k] = w;
+  render();
+  push(k, w);
+}
+function toggleDaily(id, di){ mutateWeek(w => { w.daily[id][di] = !w.daily[id][di]; }); }
+function bumpWeekly(id, d){ mutateWeek(w => { w.weekly[id] = Math.max(0, w.weekly[id] + d); }); }
+function toggleCfa(id, field){
+  state.cfa[id][field] = !state.cfa[id][field];
+  render();
+  push(CFA_KEY, state.cfa);
+}
+
+function streak(){
+  const wonOn = d => { const w = state.weeks[keyFor(mondayOf(d))];
+    return w ? dayWon(w, (d.getDay()+6)%7) : false; };
+  let c = new Date(state.today);
+  if (!wonOn(c)) c = addDays(c,-1);
+  let n = 0;
+  while (n < 400 && wonOn(c)) { n++; c = addDays(c,-1); }
+  return n;
+}
+
+function buildReport(){
+  const w = curWeek(), m = state.monday, plan = PLAN[iso(m)];
+  const won = wonDays(w), owed = Math.max(0, SAFE_DAYS-won)*PER_DAY;
+  const contentDone = CFA_TOPICS.filter(t=>state.cfa[t.id].content).length;
+  const qDone = CFA_TOPICS.filter(t=>state.cfa[t.id].questions).length;
+  const L = [];
+  L.push("Scorecard, week of "+fmt(m)+"–"+fmt(addDays(m,6)));
+  if (plan) L.push("CFA: "+plan.target+" (target "+plan.hours+"h)");
+  L.push("Days won: "+won+"/7  ("+dailyTicks(w)+"/35 daily ticks)");
+  L.push(won>=SAFE_DAYS ? "Sadaqah owed: none, target met" : "Sadaqah owed: "+gbp(owed));
+  L.push("");
+  L.push("Daily:");
+  DAILY.forEach(it => L.push(w.daily[it.id].map(v=>v?"■":"□").join("")+"  "+it.label));
+  L.push("");
+  L.push("Weekly ("+weeklyDone(w)+"/"+WEEKLY.length+" hit):");
+  WEEKLY.forEach(it => { const n=w.weekly[it.id];
+    L.push((n>=it.target?"✓":"·")+" "+it.label+" "+n+"/"+it.target); });
+  L.push("");
+  L.push("CFA syllabus: "+contentDone+"/"+CFA_TOPICS.length+" topics read, "+qDone+"/"+CFA_TOPICS.length+" question-banked");
+  const s = streak();
+  if (s>0) L.push("Streak: "+s+" day"+(s===1?"":"s"));
+  return L.join("\n");
+}
+
+/* ============================================================
+   6. RENDER
+   ============================================================ */
+const app = document.getElementById("app");
+
+function renderAuth(msg){
+  app.innerHTML =
+    '<div class="auth">' +
+      '<h1>Scorecard</h1>' +
+      '<p class="hint">Sign in so your weeks follow you between phone and laptop.</p>' +
+      '<input id="email" type="email" placeholder="Email" autocomplete="email" inputmode="email" />' +
+      '<input id="pw" type="password" placeholder="Password" autocomplete="current-password" />' +
+      '<button class="primary" data-act="signin">Sign in</button>' +
+      '<button class="ghost" data-act="signup" style="width:100%;margin-top:8px;padding:12px">Create account</button>' +
+      (msg ? '<p class="err">'+esc(msg)+'</p>' : "") +
+      '<p class="hint" style="margin-top:16px"><button class="link" data-act="offline">Use it on this device only</button></p>' +
+    '</div>';
+}
+
+function render(){
+  if (online && !state.user && !state.offline) return renderAuth(state.authMsg);
+
+  const m = state.monday, w = curWeek(), plan = PLAN[iso(m)];
+  const isCurrent = iso(m) === iso(mondayOf(state.today));
+  const todayIdx = isCurrent ? (state.today.getDay()+6)%7 : -1;
+  const won = wonDays(w), ticks = dailyTicks(w), wDone = weeklyDone(w);
+  const elapsed = isCurrent ? todayIdx+1 : (m < state.today ? 7 : 0);
+  const left = 7 - elapsed;
+  const safe = won >= SAFE_DAYS;
+  const canBeSafe = won + left >= SAFE_DAYS;
+  const owed = Math.max(0, SAFE_DAYS-won)*PER_DAY;
+  const contentDone = CFA_TOPICS.filter(t=>state.cfa[t.id].content).length;
+  const qDone = CFA_TOPICS.filter(t=>state.cfa[t.id].questions).length;
+  const weeksLeft = Math.max(0, Math.ceil((CONTENT_DEADLINE - state.today)/604800000));
+  const inTerm = iso(m) >= TERM_START;
+
+  let ledgerLine;
+  if (safe) ledgerLine = "Target met. Nothing owed this week.";
+  else if (canBeSafe) ledgerLine = (SAFE_DAYS-won)+" more won day"+((SAFE_DAYS-won)===1?"":"s")+" from the "+left+" left. Each day short costs "+gbp(PER_DAY)+" to charity.";
+  else ledgerLine = gbp(owed)+" to charity on Sunday."+(left>0 ? " Every won day from here takes "+gbp(PER_DAY)+" off." : " Send the receipt with the report.");
+
+  let html = "";
+
+  // sync bar
+  const status = !online || state.offline
+    ? '<span><span class="dot off"></span>This device only</span>'
+    : '<span><span class="dot"></span>'+(state.syncError ? "Sync failed, saved locally" : (state.syncing ? "Saving…" : "Synced"))+'</span>';
+  html += '<div class="topbar">'+status+
+    (state.user ? '<button class="link" data-act="signout">Sign out</button>' : "")+'</div>';
+
+  // week nav
+  html += '<div class="weeknav">'+
+    '<button class="nav" data-act="prev" aria-label="Previous week">‹</button>'+
+    '<div class="mid"><div class="weekrange">'+fmt(m)+' – '+fmt(addDays(m,6))+'</div>'+
+    '<div class="weeksub">'+(plan?esc(plan.phase):(isCurrent?"This week":(m>state.today?"Upcoming":"Past week")))+
+    (isCurrent?" · this week":"")+'</div></div>'+
+    '<button class="nav" data-act="next" aria-label="Next week">›</button></div>';
+
+  // ledger
+  html += '<section class="ledger '+(safe?"safe":(canBeSafe?"":"lost"))+'">'+
+    '<div class="lbig"><span class="lnum">'+won+'</span><span class="lof">/ 7 days won</span></div>'+
+    '<div class="lline">'+esc(ledgerLine)+'</div>'+
+    '<div class="lmeta"><span>'+ticks+'/35 ticks</span><span>'+wDone+'/'+WEEKLY.length+' weekly slots</span>'+
+    '<span>'+streak()+' day streak</span></div></section>';
+
+  // CFA week target
+  if (plan){
+    html += '<section class="cfabox"><div class="cfahead"><span class="cfatag">CFA this week</span>'+
+      '<span class="cfahours">'+plan.hours+' h target</span></div>'+
+      '<p class="cfatarget">'+esc(plan.target)+'</p>'+
+      (inTerm ? '<p class="cfanote">Friday 13:00 lecture overlaps Jummah — pray at Llandaff campus, then straight into Advanced Financial Management.</p>' : "")+
+      '</section>';
+  }
+
+  // daily grid
+  html += '<section class="block"><h2>Daily non-negotiables</h2>'+
+    '<p class="hint">A day is won only when all five are ticked. Tap a square.</p>'+
+    '<div class="gridwrap"><div class="grid"><div></div>';
+  DAYS.forEach((d,i)=> html += '<div class="dayhead'+(i===todayIdx?" today":"")+'">'+d+'</div>');
+  DAILY.forEach(it=>{
+    html += '<div class="rowlabel">'+esc(it.label)+'</div>';
+    DAYS.forEach((d,di)=>{
+      const on = w.daily[it.id][di];
+      const future = isCurrent && di > todayIdx;
+      html += '<button class="cell'+(on?" on":"")+(future?" future":"")+(di===todayIdx?" today":"")+
+        '" data-act="daily" data-id="'+it.id+'" data-i="'+di+'" aria-pressed="'+on+'" aria-label="'+esc(it.label)+', '+d+'"></button>';
+    });
+  });
+  html += '<div class="rowtotal">Won</div>';
+  DAYS.forEach((d,di)=> html += '<div class="woncell">'+(dayWon(w,di)?"✓":"")+'</div>');
+  html += '</div></div></section>';
+
+  // weekly slots
+  html += '<section class="block"><h2>Weekly slots</h2>'+
+    '<p class="hint">Count each one as you do it. Due by Sunday night.</p><ul class="list">';
+  WEEKLY.forEach(it=>{
+    const n = w.weekly[it.id], hit = n >= it.target;
+    html += '<li class="li"><span class="lilabel'+(hit?" done":"")+'">'+esc(it.label)+'</span>'+
+      '<span class="counter">'+
+      '<button class="pm" data-act="minus" data-id="'+it.id+'" aria-label="One fewer '+esc(it.label)+'">−</button>'+
+      '<span class="count'+(hit?" hit":"")+'">'+n+'/'+it.target+'</span>'+
+      '<button class="pm" data-act="plus" data-id="'+it.id+'" aria-label="One more '+esc(it.label)+'">+</button>'+
+      '</span></li>';
+  });
+  html += '</ul></section>';
+
+  // CFA syllabus
+  html += '<section class="block"><h2>CFA syllabus</h2>'+
+    '<p class="hint">February 2027 sits the 2027 curriculum. '+contentDone+'/'+CFA_TOPICS.length+' read, '+
+    qDone+'/'+CFA_TOPICS.length+' question-banked. '+weeksLeft+' week'+(weeksLeft===1?"":"s")+
+    ' to the 30 Nov content deadline.</p>'+
+    '<div class="bar"><div class="barfill" style="width:'+((contentDone/CFA_TOPICS.length)*100)+'%"></div></div>'+
+    '<div class="topichead"><span></span><span class="colhead">Read</span><span class="colhead">Qbank</span></div><ul class="list">';
+  CFA_TOPICS.forEach(t=>{
+    const st = state.cfa[t.id];
+    html += '<li class="topicrow"><span><span class="lilabel"'+(st.content?' style="opacity:.6"':"")+'>'+esc(t.label)+'</span>'+
+      '<span class="weight"> '+esc(t.weight)+'</span>'+
+      (t.note ? '<div class="topicnote">'+esc(t.note)+'</div>' : "")+'</span>'+
+      '<button class="chip'+(st.content?" on":"")+'" data-act="cfa" data-id="'+t.id+'" data-f="content" aria-pressed="'+st.content+'" aria-label="'+esc(t.label)+' content read">'+(st.content?"✓":"")+'</button>'+
+      '<button class="chip'+(st.questions?" on":"")+'" data-act="cfa" data-id="'+t.id+'" data-f="questions" aria-pressed="'+st.questions+'" aria-label="'+esc(t.label)+' question bank done">'+(st.questions?"✓":"")+'</button>'+
+      '</li>';
+  });
+  html += '</ul></section>';
+
+  // report
+  html += '<section class="block"><h2>Sunday report</h2>'+
+    '<p class="hint">Send this to your friend each Sunday, with the donation receipt if anything is owed.</p>'+
+    '<div class="actions"><button class="primary" data-act="copy">'+(state.copied?"Copied":"Copy report")+'</button>'+
+    '<button class="ghost" data-act="toggle-report">'+(state.showReport?"Hide text":"Show text")+'</button></div>'+
+    (state.showReport ? '<pre class="report">'+esc(buildReport())+'</pre>' : "")+
+    '</section>';
+
+  app.innerHTML = html;
+}
+
+/* ============================================================
+   7. EVENTS
+   ============================================================ */
+app.addEventListener("click", async e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+
+  if (act === "prev"){ state.monday = addDays(state.monday,-7); return render(); }
+  if (act === "next"){ state.monday = addDays(state.monday, 7); return render(); }
+  if (act === "daily") return toggleDaily(el.dataset.id, +el.dataset.i);
+  if (act === "plus")  return bumpWeekly(el.dataset.id, 1);
+  if (act === "minus") return bumpWeekly(el.dataset.id,-1);
+  if (act === "cfa")   return toggleCfa(el.dataset.id, el.dataset.f);
+  if (act === "toggle-report"){ state.showReport = !state.showReport; return render(); }
+  if (act === "copy"){
+    const text = buildReport();
+    try { await navigator.clipboard.writeText(text); state.copied = true; render();
+          setTimeout(()=>{ state.copied=false; render(); }, 1500); }
+    catch { state.showReport = true; render(); }
+    return;
+  }
+  if (act === "offline"){ state.offline = true; await pullAll(); return render(); }
+  if (act === "signout"){ await sb.auth.signOut(); state.user=null; state.weeks={}; state.cfa=emptyCfa(); return render(); }
+
+  if (act === "signin" || act === "signup"){
+    const email = document.getElementById("email").value.trim();
+    const pw = document.getElementById("pw").value;
+    if (!email || !pw){ state.authMsg = "Email and password, both."; return render(); }
+    el.disabled = true;
+    const fn = act === "signin" ? sb.auth.signInWithPassword({email,password:pw})
+                                : sb.auth.signUp({email,password:pw});
+    const { data, error } = await fn;
+    if (error){ state.authMsg = error.message; return render(); }
+    if (!data.session){ state.authMsg = "Account made. Confirm the email, then sign in."; return render(); }
+    state.user = data.session.user; state.authMsg = null;
+    await pullAll();
+    return render();
+  }
+});
+
+/* ============================================================
+   8. BOOT
+   ============================================================ */
+(async function init(){
+  if (sb){
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) state.user = data.session.user;
+  }
+  await pullAll();
+  render();
+  // refresh "today" if the tab is left open overnight
+  setInterval(()=>{
+    const d = new Date(); d.setHours(0,0,0,0);
+    if (iso(d) !== iso(state.today)){ state.today = d; state.monday = mondayOf(d); render(); }
+  }, 60000);
+})();
+</script>
+</body>
+</html>
